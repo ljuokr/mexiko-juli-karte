@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mexiko im Juli · Ideen-Karte</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --base:#8c3427;        /* Terracotta / Mole */
+    --base-dark:#5f2015;
+    --paper:#fbf7f0;
+    --ink:#22221e;
+    --must:#c8472e;        /* Highlights */
+    --fest:#c2417f;        /* Juli-Feste */
+    --tiere:#3e7d3a;       /* Tiere & Natur */
+    --wasser:#0e7c86;      /* Cenoten & Baden */
+    --ruine:#6b5b95;       /* Ruinen & Museen */
+    --stadt:#46628c;       /* Städte & Dörfer */
+    --essen:#b07c10;       /* Essen & Märkte */
+    --kajak:#1272a8;       /* Kajak-Seeblau */
+    --wing:#00a0bc;        /* Wingfoil-Cyan */
+    --surf:#123f66;        /* Surf-Navy */
+    --wandern:#7a5230;     /* Trail-Braun */
+    --sam:#37474f;         /* Südamerika-Anthrazit */
+    --tauch:#4527a0;       /* Tauch-Indigo */
+    --velo:#71861c;        /* Velo-Oliv */
+    --zone-red:#c22a1e;
+    --zone-amber:#d98a1f;
+    --radius:16px;
+    --shadow:0 6px 24px rgba(70,25,15,.20);
+    --sat:env(safe-area-inset-top,0px);
+    --sab:env(safe-area-inset-bottom,0px);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:var(--paper);
+  }
+  #map{position:fixed;inset:0;z-index:1;background:#e8e2d4}
+
+  /* ---------- Header ---------- */
+  header{
+    position:fixed;top:0;left:0;right:0;z-index:20;
+    padding:calc(var(--sat) + 10px) 14px 0;
+    pointer-events:none;
+  }
+  .title-card{
+    pointer-events:auto;position:relative;
+    background:var(--base);color:#fff;
+    border-radius:var(--radius);
+    padding:12px 52px 10px 16px;
+    box-shadow:var(--shadow);
+  }
+  .title-card h1{font-size:1.05rem;font-weight:700;letter-spacing:.01em;line-height:1.2}
+  .title-card p{font-size:.72rem;opacity:.88;margin-top:2px}
+  .info-btn{
+    position:absolute;top:10px;right:10px;
+    width:34px;height:34px;border-radius:50%;border:none;
+    background:rgba(255,255,255,.18);color:#fff;
+    font-size:17px;font-weight:700;cursor:pointer;
+  }
+  .info-btn:active{background:rgba(255,255,255,.32)}
+  .chips{
+    pointer-events:auto;
+    display:flex;gap:8px;margin-top:10px;
+    overflow-x:auto;scrollbar-width:none;
+    padding-bottom:4px;
+  }
+  .chips::-webkit-scrollbar{display:none}
+  .chip{
+    flex:0 0 auto;display:flex;align-items:center;gap:6px;
+    border:none;border-radius:999px;
+    padding:9px 14px;font-size:.82rem;font-weight:600;
+    background:#fff;color:var(--ink);
+    box-shadow:0 2px 10px rgba(70,25,15,.14);
+    cursor:pointer;transition:transform .12s ease,opacity .15s ease;
+  }
+  .chip:active{transform:scale(.95)}
+  .chip .dot{width:10px;height:10px;border-radius:50%}
+  .chip[data-cat="must"] .dot{background:var(--must)}
+  .chip[data-cat="fest"] .dot{background:var(--fest)}
+  .chip[data-cat="tiere"] .dot{background:var(--tiere)}
+  .chip[data-cat="wasser"] .dot{background:var(--wasser)}
+  .chip[data-cat="ruine"] .dot{background:var(--ruine)}
+  .chip[data-cat="stadt"] .dot{background:var(--stadt)}
+  .chip[data-cat="essen"] .dot{background:var(--essen)}
+  .chip[data-cat="kajak"] .dot{background:var(--kajak)}
+  .chip[data-cat="wing"] .dot{background:var(--wing)}
+  .chip[data-cat="surf"] .dot{background:var(--surf)}
+  .chip[data-cat="wandern"] .dot{background:var(--wandern)}
+  .chip[data-cat="sam"] .dot{background:var(--sam)}
+  .chip[data-cat="tauch"] .dot{background:var(--tauch)}
+  .chip[data-cat="velo"] .dot{background:var(--velo)}
+  .chip[data-cat="all"] .dot{background:conic-gradient(var(--must) 0 7.1%,var(--fest) 7.1% 14.3%,var(--tiere) 14.3% 21.4%,var(--wasser) 21.4% 28.6%,var(--ruine) 28.6% 35.7%,var(--stadt) 35.7% 42.9%,var(--essen) 42.9% 50%,var(--kajak) 50% 57.1%,var(--wing) 57.1% 64.3%,var(--surf) 64.3% 71.4%,var(--wandern) 71.4% 78.6%,var(--sam) 78.6% 85.7%,var(--tauch) 85.7% 92.9%,var(--velo) 92.9% 100%)}
+  .chip.off{opacity:.45}
+  .chip.off .dot{background:#9aa3ab !important}
+
+  /* ---------- Marker ---------- */
+  .pin{
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+    width:38px;height:38px;border-radius:50% 50% 50% 6px;
+    font-size:19px;line-height:1;
+    border:2.5px solid #fff;
+    box-shadow:0 3px 10px rgba(70,25,15,.35);
+  }
+  .pin.must{background:var(--must)}
+  .pin.fest{background:var(--fest)}
+  .pin.tiere{background:var(--tiere)}
+  .pin.wasser{background:var(--wasser)}
+  .pin.ruine{background:var(--ruine)}
+  .pin.stadt{background:var(--stadt)}
+  .pin.essen{background:var(--essen)}
+  .pin.kajak{background:var(--kajak)}
+  .pin.wing{background:var(--wing)}
+  .pin.surf{background:var(--surf)}
+  .pin.wandern{background:var(--wandern)}
+  .pin.sam{background:var(--sam)}
+  .pin.tauch{background:var(--tauch)}
+  .pin.velo{background:var(--velo)}
+  .pin-badge{
+    position:absolute;top:-7px;right:-7px;
+    width:18px;height:18px;border-radius:50%;
+    background:#e0322f;color:#fff;
+    font-size:12px;font-weight:800;line-height:18px;text-align:center;
+    border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);
+  }
+
+  /* ---------- Bottom Sheet ---------- */
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    background:#fff;border-radius:22px 22px 0 0;
+    box-shadow:0 -8px 32px rgba(70,25,15,.22);
+    padding:10px 20px calc(var(--sab) + 20px);
+    transform:translateY(110%);
+    transition:transform .28s cubic-bezier(.32,.72,.3,1);
+    max-height:62vh;overflow-y:auto;
+  }
+  .sheet.open{transform:translateY(0)}
+  .grabber{width:40px;height:4px;border-radius:2px;background:#d5dade;margin:0 auto 12px}
+  .sheet .tag{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+    padding:4px 10px;border-radius:999px;color:#fff;margin-bottom:8px;
+  }
+  .sheet .tag.must{background:var(--must)}
+  .sheet .tag.fest{background:var(--fest)}
+  .sheet .tag.tiere{background:var(--tiere)}
+  .sheet .tag.wasser{background:var(--wasser)}
+  .sheet .tag.ruine{background:var(--ruine)}
+  .sheet .tag.stadt{background:var(--stadt)}
+  .sheet .tag.essen{background:var(--essen)}
+  .sheet .tag.kajak{background:var(--kajak)}
+  .sheet .tag.wing{background:var(--wing)}
+  .sheet .tag.surf{background:var(--surf)}
+  .sheet .tag.wandern{background:var(--wandern)}
+  .sheet .tag.sam{background:var(--sam)}
+  .sheet .tag.tauch{background:var(--tauch)}
+  .sheet .tag.velo{background:var(--velo)}
+  .sheet .tag.info{background:var(--base)}
+  .sheet h2{font-size:1.25rem;font-weight:800;line-height:1.25;margin-bottom:6px}
+  .sheet .note{font-size:.92rem;line-height:1.55;color:#454c53}
+  .sheet .note h3{font-size:.95rem;margin:14px 0 4px;color:var(--ink)}
+  .sheet .note ul{padding-left:18px;margin:4px 0}
+  .sheet .note li{margin-bottom:4px}
+  .sheet .juli{
+    font-size:.88rem;line-height:1.5;color:#1e4d22;
+    background:#e9f3e6;border-radius:10px;
+    padding:9px 12px;margin-top:10px;
+  }
+  .sheet .juli:empty{display:none}
+  .sheet .warnbox{
+    font-size:.85rem;line-height:1.5;color:#7a3c00;
+    background:#fdf0dc;border:1px solid #eccb96;border-radius:10px;
+    padding:9px 12px;margin-top:10px;
+  }
+  .sheet .warnbox:empty{display:none}
+  .sheet .meta{font-size:.8rem;color:#79828a;margin-top:10px}
+  .sheet a{color:var(--base)}
+  .sheet a.route{
+    display:inline-block;margin-top:14px;
+    background:var(--base);color:#fff;text-decoration:none;
+    font-size:.88rem;font-weight:700;
+    padding:11px 18px;border-radius:12px;
+  }
+  .sheet a.route:active{background:var(--base-dark)}
+
+  /* ---------- Zonen-Legende ---------- */
+  .zone-legend{
+    position:fixed;left:14px;bottom:calc(var(--sab) + 24px);z-index:22;
+    background:#fff;border-radius:12px;box-shadow:var(--shadow);
+    padding:10px 12px;font-size:.74rem;line-height:1.5;
+  }
+  .zone-legend label{display:flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;margin-bottom:4px}
+  .zl-row{display:flex;align-items:center;gap:6px;color:#454c53}
+  .swatch{width:14px;height:14px;border-radius:4px;flex:0 0 auto}
+  .swatch.red{background:var(--zone-red);opacity:.55}
+  .swatch.amber{background:var(--zone-amber);opacity:.55}
+
+  /* ---------- Eigener Standort ---------- */
+  .me-dot{
+    width:18px;height:18px;border-radius:50%;
+    background:#1a73e8;border:3px solid #fff;
+    box-shadow:0 0 0 2px rgba(26,115,232,.35),0 2px 8px rgba(70,25,15,.3);
+  }
+  .locate-btn{
+    position:fixed;right:14px;bottom:calc(var(--sab) + 24px);z-index:25;
+    width:52px;height:52px;border-radius:50%;border:none;
+    background:#fff;color:var(--base);font-size:22px;
+    box-shadow:var(--shadow);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:transform .12s ease;
+  }
+  .locate-btn:active{transform:scale(.92)}
+  .locate-btn.active{background:var(--base);color:#fff}
+
+  .leaflet-top{top:calc(var(--sat) + 118px)}
+  .leaflet-control-attribution{font-size:9px}
+
+  @media (min-width:760px){
+    header{left:20px;right:auto;width:400px}
+    .sheet{left:20px;right:auto;width:400px;border-radius:22px;bottom:20px;max-height:60vh}
+    .zone-legend{left:auto;right:80px}
+    .leaflet-top{top:20px}
+    .leaflet-left{left:auto;right:10px}
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<header>
+  <div class="title-card">
+    <h1>Mexiko im Juli · Ideen-Karte</h1>
+    <p>Nur Regionen &amp; Aktivitäten, die im Juli/Anfang August wirklich funktionieren</p>
+    <button class="info-btn" id="infoBtn" aria-label="Juli-Logik und Quellen">ℹ️</button>
+  </div>
+  <div class="chips" id="chips">
+    <button class="chip" data-cat="all"><span class="dot"></span>Alle</button>
+    <button class="chip" data-cat="must"><span class="dot"></span>⭐ Highlights</button>
+    <button class="chip" data-cat="fest"><span class="dot"></span>🎉 Juli-Feste</button>
+    <button class="chip" data-cat="tiere"><span class="dot"></span>🐋 Tiere</button>
+    <button class="chip" data-cat="wasser"><span class="dot"></span>💧 Cenoten &amp; Baden</button>
+    <button class="chip" data-cat="ruine"><span class="dot"></span>🏛️ Ruinen</button>
+    <button class="chip" data-cat="stadt"><span class="dot"></span>🏘️ Städte</button>
+    <button class="chip" data-cat="essen"><span class="dot"></span>🌮 Essen</button>
+    <button class="chip" data-cat="kajak"><span class="dot"></span>🛶 Kajak</button>
+    <button class="chip" data-cat="wing"><span class="dot"></span>🪁 Wingfoil</button>
+    <button class="chip" data-cat="surf"><span class="dot"></span>🏄 Surfen</button>
+    <button class="chip" data-cat="wandern"><span class="dot"></span>🥾 Wandern</button>
+    <button class="chip" data-cat="tauch"><span class="dot"></span>🤿 Tauchen</button>
+    <button class="chip" data-cat="velo"><span class="dot"></span>🚵 Velo &amp; MTB</button>
+    <button class="chip" data-cat="sam"><span class="dot"></span>🌎 Südamerika</button>
+  </div>
+</header>
+
+<div class="zone-legend" id="zoneLegend">
+  <label><input type="checkbox" id="zoneToggle" checked> EDA-Risikozonen</label>
+  <div class="zl-row"><span class="swatch red"></span> von Reisen abgeraten</div>
+  <div class="zl-row"><span class="swatch amber"></span> erhöhte Vorsicht</div>
+</div>
+
+<button class="locate-btn" id="locateBtn" aria-label="Meinen Standort anzeigen" title="Mein Standort">➤</button>
+
+<div class="sheet" id="sheet">
+  <div class="grabber"></div>
+  <span class="tag" id="sheetTag"></span>
+  <h2 id="sheetTitle"></h2>
+  <p class="note" id="sheetNote"></p>
+  <p class="juli" id="sheetJuli"></p>
+  <p class="warnbox" id="sheetWarn"></p>
+  <p class="meta" id="sheetMeta"></p>
+  <a class="route" id="sheetRoute" target="_blank" rel="noopener">Route in Google Maps</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const CATS = {
+  must:   {label:"Highlight",        emoji:"⭐"},
+  fest:   {label:"Juli-Fest",        emoji:"🎉"},
+  tiere:  {label:"Tiere & Natur",    emoji:"🐋"},
+  wasser: {label:"Cenoten & Baden",  emoji:"💧"},
+  ruine:  {label:"Ruinen & Museen",  emoji:"🏛️"},
+  stadt:  {label:"Städte & Dörfer",  emoji:"🏘️"},
+  essen:  {label:"Essen & Märkte",   emoji:"🌮"},
+  kajak:  {label:"Kajak & Paddeln",  emoji:"🛶"},
+  wing:   {label:"Wingfoil",         emoji:"🪁"},
+  surf:   {label:"Surfen",           emoji:"🏄"},
+  wandern:{label:"Wandern & Berge",  emoji:"🥾"},
+  tauch:  {label:"Tauchen & Schnorcheln", emoji:"🤿"},
+  velo:   {label:"Velo & MTB",       emoji:"🚵"},
+  sam:    {label:"Südamerika-Idee",  emoji:"🌎"}
+};
+
+const PLACES = [
+  // ================= Mexiko-Stadt & Umland (Hochland, Regenzeit = angenehm) =================
+  {cat:"must", name:"Centro Histórico & Zócalo (CDMX)", lat:19.4326, lng:-99.1332,
+   note:"Einer der grössten Plätze der Welt, Kathedrale, Templo Mayor und Diego-Rivera-Murales im Palacio Nacional. Mexiko-Stadt liegt auf 2240 m - im Juli grün, mild und deutlich leerer als in der Trockenzeit.",
+   juli:"Regenzeit-Rhythmus: Vormittag draussen, ab ca. 16 Uhr kurzes Gewitter, abends wieder trocken. Tagsüber um 23 Grad.",
+   meta:"Templo Mayor Di-So · Palacio Nacional mit Ausweis"},
+  {cat:"ruine", name:"Museo Nacional de Antropología", lat:19.4260, lng:-99.1863,
+   note:"Das beste Museum Lateinamerikas: Azteken-Sonnenstein, Maya-Säle, Teotihuacán-Rekonstruktionen. Locker ein halber Tag.",
+   juli:"Perfektes Nachmittagsprogramm, wenn draussen das tägliche Gewitter niedergeht.",
+   meta:"Di-So 9-18 Uhr · Chapultepec-Park"},
+  {cat:"ruine", name:"Castillo de Chapultepec", lat:19.4204, lng:-99.1819,
+   note:"Einziges echtes Schloss Nordamerikas, auf dem Hügel über dem Park, mit Blick über die ganze Stadt und Murales von Siqueiros.",
+   juli:"Morgens hochlaufen, bevor die Wolken aufziehen - der Blick reicht dann bis zu den Vulkanen.",
+   meta:"Di-So 9-17 Uhr"},
+  {cat:"must", name:"Teotihuacán", lat:19.6925, lng:-98.8438,
+   note:"Sonnen- und Mondpyramide an der Calzada de los Muertos, eine der grössten Städte der antiken Welt. 50 km ab CDMX.",
+   juli:"Um 8 Uhr bei Öffnung dort sein: kühl, leer, und das Nachmittagsgewitter ist egal, weil man bis Mittag durch ist. Im Juli liegt die Ebene grün da.",
+   meta:"Täglich 8-17 Uhr · Uber/Bus ab Terminal Norte"},
+  {cat:"must", name:"Xochimilco", lat:19.2578, lng:-99.1039,
+   note:"Bunte Trajinera-Boote durch die aztekischen Kanäle und Chinampas-Gärten, mit Mariachi- und Essensbooten - UNESCO-Welterbe.",
+   juli:"Unter der Woche vormittags fahren: ruhig, grün und vor dem Regen zurück. Samstags wird es zur schwimmenden Party.",
+   warn:"2026 Meldungen über Abzocke und Vorfälle in der Party-Szene (v. a. nachmittags/abends): nur Trajinera mit sichtbarem Nummernschild (emplacada, Nummer fotografieren). Offizieller Tarif 2026: 750 MXN pro Stunde PRO BOOT (nie pro Person, 1-18 Personen gleicher Preis) - Verstösse am Módulo de Atención melden.",
+   meta:"Embarcadero Nuevo Nativitas · Preis pro Boot/Stunde"},
+  {cat:"stadt", name:"Coyoacán & Casa Azul", lat:19.3551, lng:-99.1627,
+   note:"Frida Kahlos blaues Haus im schönsten Kolonialquartier der Stadt: Plätze, Buchläden, Kaffeehäuser.",
+   juli:"Casa-Azul-Tickets einige Tage vorher online kaufen - Juli ist mexikanische Ferienzeit.",
+   meta:"Casa Azul Di-So, nur Online-Tickets"},
+  {cat:"essen", name:"Mercado de Coyoacán", lat:19.3562, lng:-99.1608,
+   note:"Klassischer Markt mit den berühmten Tostadas-Ständen, Obstbergen und Handwerk - viel echter als die Touristenmärkte im Zentrum.",
+   juli:"Mittags hinein, wenn draussen der Regen einsetzt - drinnen ist Hochbetrieb und alles frisch.",
+   meta:"Täglich ca. 8-18 Uhr"},
+  {cat:"essen", name:"Roma & Condesa", lat:19.4155, lng:-99.1710,
+   note:"Die Food-Quartiere: Taquerías, Third-Wave-Kaffee, Mezcalerías und Art-déco-Strassenzüge um den Parque México.",
+   juli:"Abends nach dem Regen glänzen die Alleen - beste Zeit für die Taco-Runde.",
+   meta:"Metro Sevilla/Chilpancingo"},
+  {cat:"fest", name:"Lucha Libre in der Arena México", lat:19.4235, lng:-99.1531,
+   note:"Maskierte Kämpfer, brüllendes Publikum, pure Show - das ehrlichste Spektakel der Stadt und komplett wetterfest.",
+   juli:"Ideales Abendprogramm in der Regenzeit. Dienstag- und Freitagabend sowie Sonntag.",
+   meta:"Tickets an der Kasse oder Ticketmaster · keine grossen Kameras"},
+  {cat:"wasser", name:"Grutas de Tolantongo", lat:20.6458, lng:-99.0022,
+   note:"Thermalfluss, heisse Höhlen und Terrassenbecken in einem spektakulären Canyon in Hidalgo, 4 Std. ab CDMX.",
+   juli:"Funktioniert auch in der Regenzeit (Quellwasser bleibt warm), aber nach Starkregen kann der Fluss statt türkis eher milchig sein. Wochenende meiden.",
+   warn:"Kurvige Anfahrt - bei Gewitterwarnung nicht in den Canyon-Abstieg starten.",
+   meta:"Übernachtung im Resort möglich · Bargeld mitnehmen"},
+
+  // ================= Puebla & Querétaro =================
+  {cat:"stadt", name:"Puebla Centro", lat:19.0433, lng:-98.1981,
+   note:"UNESCO-Altstadt voller Talavera-Kacheln, die Kapelle Capilla del Rosario als Gold-Explosion, dazu die grosse Markt- und Süssigkeitentradition.",
+   juli:"Wie CDMX: mild, grün, nachmittags Schauer. Gut kombinierbar als 2-Tages-Abstecher.",
+   meta:"2 Std. ab CDMX (Bus CAPU)"},
+  {cat:"essen", name:"Chile en Nogada (Saisonstart!)", lat:19.0450, lng:-98.1997,
+   note:"DAS Saisongericht Mexikos: gefüllter Poblano-Chili mit Walnusssauce und Granatapfel, in den Nationalfarben. Gibt es nur, wenn Granatapfel und Nuss reif sind - und das beginnt genau Ende Juli.",
+   juli:"Saison ca. Ende Juli bis September - wer Ende Juli/Anfang August in Puebla ist, erwischt die ersten Wochen. Klassische Adressen: El Mural de los Poblanos, Casa Barroca.",
+   meta:"Reservieren lohnt sich in der Saison"},
+  {cat:"ruine", name:"Cholula: Pyramide & Kirche", lat:19.0576, lng:-98.3022,
+   note:"Die volumengrösste Pyramide der Welt, überwachsen und mit der gelben Kirche Nuestra Señora de los Remedios obendrauf. Dazu Cholulas Café-Szene.",
+   juli:"Früh am Morgen ist die Chance auf freien Popocatépetl-Blick am grössten - nachmittags hängt er in Wolken.",
+   meta:"20 Min. ab Puebla"},
+  {cat:"stadt", name:"Querétaro Centro", lat:20.5931, lng:-100.3920,
+   note:"Entspannte UNESCO-Kolonialstadt mit Aquädukt, Plazas und guter Gastroszene - der sichere Ersatz für das (EDA-rote) Guanajuato/San Miguel.",
+   juli:"Angenehme 25 Grad, kurze Nachmittagsschauer - klassisches Hochland-Juli-Wetter.",
+   meta:"3 Std. ab CDMX"},
+  {cat:"must", name:"Peña de Bernal", lat:20.7492, lng:-99.9496,
+   note:"Einer der grössten Monolithen der Welt über einem Pueblo Mágico. Der Wanderweg führt bis etwa drei Viertel hoch, oben weiter Blick über die Halbwüste.",
+   juli:"Um diese Jahreszeit früh aufsteigen: morgens klar und kühl, mittags Quellwolken, nachmittags Gewitterrisiko am Fels.",
+   meta:"1 Std. ab Querétaro"},
+  {cat:"fest", name:"Vendimia: Weinlese-Feste Querétaro", lat:20.5698, lng:-99.8790,
+   note:"Die Weinregion um Ezequiel Montes/Tequisquiapan (Freixenet México & Co.) feiert im Hochsommer die Weinlese mit Festen, Verkostungen und Traubenstampfen.",
+   juli:"Die Fiestas de la Vendimia laufen typischerweise ab Ende Juli und im August - Programm der Weingüter vorab prüfen und Tickets sichern.",
+   meta:"Käse-und-Wein-Route ab Tequisquiapan",
+   warn:"Termine wechseln jährlich pro Weingut - vor der Fahrt bestätigen."},
+
+  // ================= Oaxaca (Guelaguetza!) =================
+  {cat:"fest", name:"Guelaguetza (letzte zwei Juli-Montage)", lat:17.0687, lng:-96.7312,
+   note:"Das grösste Folklore-Fest Lateinamerikas: Delegationen aus allen Regionen Oaxacas tanzen im offenen Auditorium am Cerro del Fortín. Der ganze Juli ist in der Stadt Festmonat mit Umzügen (Convites), Mezcal-Messe und Konzerten.",
+   juli:"2026: 20. + 27. Juli, je 10 und 17 Uhr - nach dem 27.7. sind die Lunes del Cerro VORBEI, Anfang August läuft nur noch die Nachfest-Stimmung. 2027: 19. + 26. Juli. Tickets für Bereich A/B früh sichern - die hinteren Ränge sind gratis, dafür sehr früh anstehen.",
+   meta:"Auditorio Guelaguetza · Unterkünfte Monate im Voraus buchen"},
+  {cat:"stadt", name:"Oaxaca Centro & Santo Domingo", lat:17.0654, lng:-96.7237,
+   note:"Die schönste Kolonialstadt des Landes: Kirche Santo Domingo mit Goldinnerem, Kulturmuseum im Ex-Kloster, Läden mit Textilien und Alebrijes.",
+   juli:"Im Juli ist die Stadt geschmückt und voller Musik - dafür Preise oben und Zimmer knapp. Tagsüber um 28 Grad, abends angenehm.",
+   meta:"EDA: Stadt und Tal ok, abgelegenes Hinterland meiden"},
+  {cat:"ruine", name:"Monte Albán", lat:17.0439, lng:-96.7674,
+   note:"Zapoteken-Hauptstadt auf einem abgeflachten Bergrücken über dem Tal - Plattformen, Ballspielplatz, 360-Grad-Blick.",
+   juli:"Morgens fahren: klare Sicht auf die grünen Täler, bevor Mittagshitze und Quellwolken kommen. Kaum Schatten oben.",
+   meta:"Täglich 8-16.30 Uhr · Shuttle ab Zentrum"},
+  {cat:"wasser", name:"Hierve el Agua", lat:16.8659, lng:-96.2760,
+   note:"Versteinerte „Wasserfälle“ aus Kalk und mineralische Infinity-Becken mit Blick über die Sierra.",
+   juli:"In der Regenzeit sind die Becken gefüllt und die Täler grün - fotogenste Zeit. Am besten als Tour mit Mezcal- und Teotitlán-Stopp.",
+   warn:"Zugang wird von der Gemeinde verwaltet und ist gelegentlich gesperrt - Stand vor Ort erfragen.",
+   meta:"1.5 Std. ab Oaxaca, letzter Abschnitt Piste"},
+  {cat:"essen", name:"Mercado 20 de Noviembre", lat:17.0598, lng:-96.7264,
+   note:"Oaxacas Fress-Markt: im „Pasillo de Humo“ wählt man rohes Fleisch und grillt es am Stand, dazu Tlayudas, Mole und heisse Schokolade.",
+   juli:"Rund um die Guelaguetza brummt der Markt - mittags hingehen, abends sind die besten Stände leer gekauft.",
+   meta:"Täglich bis ca. 20 Uhr"},
+  {cat:"essen", name:"Mezcal-Dörfer um Santiago Matatlán", lat:16.8664, lng:-96.3810,
+   note:"Die „Welthauptstadt des Mezcal“: Palenques zeigen Ernte, Erdofen und Destillation, mit Verkostung direkt beim Produzenten. Im Juli läuft in der Stadt parallel die grosse Mezcal-Messe (Feria del Mezcal).",
+   juli:"Feria del Mezcal in Oaxaca-Stadt während der Guelaguetza-Wochen - probieren dort, kaufen im Dorf.",
+   warn:"EDA warnt vor abgelegenen Strassen im Hinterland - mit Tour oder Fahrer fahren, nicht nachts.",
+   meta:"Tagesausflug, oft mit Hierve el Agua kombiniert"},
+  {cat:"stadt", name:"Teotitlán del Valle", lat:17.0300, lng:-96.5220,
+   note:"Weberdorf der Zapoteken: Teppiche mit Naturfarben aus Cochenille, Indigo und Granatapfel, Werkstattbesuche bei Familien.",
+   juli:"Gut mit Markt am Sonntag in Tlacolula kombinierbar - im Festmonat besonders lebhaft.",
+   meta:"40 Min. ab Oaxaca"},
+
+  // ================= Oaxaca-Küste (Regenzeit-Spezialitäten) =================
+  {cat:"must", name:"Puerto Escondido", lat:15.8530, lng:-97.0480,
+   note:"Surfstadt mit Weltklasse-Welle: an der Playa Zicatela laufen im Juli die grossen Süd-Swells (zuschauen!), gebadet wird in der geschützten Bucht Carrizalillo.",
+   juli:"Juli = Big-Wave-Saison an der Zicatela, morgens oft sonnig, abends Schauer. Schwül, aber deutlich ruhiger als im Winter.",
+   warn:"Anreise ab Oaxaca-Stadt am besten per Flug (40 Min.) - EDA rät von abgelegenen Überlandstrassen ab, die Serpentinen-Route dauert 7+ Std.",
+   meta:"Flug OAX-PXM oder via CDMX"},
+  {cat:"tiere", name:"Biolumineszenz: Laguna de Manialtepec", lat:15.9269, lng:-97.2115,
+   note:"Nachts leuchtet das Wasser bei jeder Bewegung blau - Plankton-Biolumineszenz zum Reinschwimmen.",
+   juli:"Die Regenzeit ist die beste Saison dafür: Süsswasserzufluss füttert das Plankton. Um Neumond buchen, bei Vollmond sieht man wenig.",
+   meta:"Abendtouren ab Puerto Escondido, ca. 20 Min. Fahrt"},
+
+  // ================= Chiapas (Hochland kühl, Wasserfälle voll) =================
+  {cat:"stadt", name:"San Cristóbal de las Casas", lat:16.7370, lng:-92.6376,
+   note:"Koloniales Hochlandstädtchen auf 2200 m: Märkte der Tzotzil-Gemeinden, Kaffeehäuser, Amber-Museum, kühle Bergluft.",
+   juli:"Im Juli tagsüber um 20 Grad - nach der Yucatán-Hitze eine Erholung. Abends Jacke, nachts frisch.",
+   meta:"Flug nach Tuxtla (TGZ), dann 1 Std. Berg hoch"},
+  {cat:"must", name:"Cañón del Sumidero", lat:16.7078, lng:-93.0117,
+   note:"Bootsfahrt zwischen 1000-Meter-Wänden: Krokodile, Brüllaffen, Pelikane und der „Weihnachtsbaum“-Wasserfall.",
+   juli:"In der Regenzeit führt der Fluss viel Wasser und die Wände sind grün bewachsen - beste Zeit für die Tour. Morgens fahren (ruhigeres Wasser).",
+   meta:"Boote ab Chiapa de Corzo, ca. 2 Std."},
+  {cat:"wasser", name:"Cascadas El Chiflón", lat:16.0064, lng:-92.2666,
+   note:"Türkise Kaskaden-Treppe mit dem 120-m-Fall „Velo de Novia“, gut ausgebauter Weg bergauf entlang der Fälle.",
+   juli:"Regenzeit = maximale Wassermassen, spektakulär (und Gischt-Dusche). Nach Starkregen kann das Türkis 1-2 Tage eintrüben - dann trotzdem beeindruckend.",
+   meta:"Tagesausflug ab San Cristóbal, oft mit Montebello"},
+  {cat:"wasser", name:"Lagos de Montebello", lat:16.1000, lng:-91.7000,
+   note:"Dutzende Seen in Kiefernwald an der Grenze zu Guatemala, jeder in anderem Blau-Grün - mit Floss oder Kajak auf einzelnen Seen.",
+   juli:"Farben je nach Licht: Vormittag einplanen, bevor die Wolken kommen.",
+   warn:"Nur die touristische Seen-Route nutzen; das eigentliche Grenzgebiet zu Guatemala stuft das EDA als gefährlich ein.",
+   meta:"1.5 Std. ab Comitán"},
+  {cat:"stadt", name:"San Juan Chamula", lat:16.7900, lng:-92.6880,
+   note:"Tzotzil-Dorf mit der berühmten Kirche voller Kiefernnadeln, Kerzenmeer und Schamanen-Ritualen - einer der eindrücklichsten Orte des Landes.",
+   juli:"Sonntags ist Markt und am meisten los. In der Kirche gilt absolutes Fotoverbot - wird sehr ernst genommen.",
+   meta:"20 Min. ab San Cristóbal, mit lokalem Guide sinnvoll"},
+  {cat:"ruine", name:"Palenque", lat:17.4839, lng:-92.0460,
+   note:"Maya-Ruinen im Nebel-Dschungel mit dem Grab von Pakal - im Juli dampft der Urwald und die Brüllaffen sind laut.",
+   juli:"Früh um 8 Uhr rein: kühler, leerer, Tierstimmen. Nachmittags tropische Güsse. Agua Azul ist in der Regenzeit oft braun statt türkis - Erwartung anpassen (El Chiflón ist die bessere Regenzeit-Alternative).",
+   warn:"EDA: Auf der Strasse 199 San Cristóbal-Palenque errichten kriminelle Gruppen Blockaden. Stattdessen fliegen (Villahermosa/Palenque) oder Grossbus-Verbindung mit Tag-Ankunft wählen.",
+   meta:"Site täglich 8-17 Uhr"},
+
+  // ================= Yucatán & Campeche (heiss, aber Cenoten-Strategie) =================
+  {cat:"must", name:"Mérida", lat:20.9674, lng:-89.6237,
+   note:"Sicherste Grossstadt Mexikos, Basis für Cenoten, Uxmal und die Nordküste: Paseo Montejo, Kolonialpaläste, starke Küche (Cochinita Pibil).",
+   juli:"Sehr heiss (35-38 Grad) - Stadtleben findet abends statt: montags Vaquería, sonntags autofreier Biciruta-Morgen. Mittags Museum oder Pool.",
+   meta:"Bundesstaat Yucatán taucht in keiner EDA-Warnliste auf"},
+  {cat:"ruine", name:"Uxmal", lat:20.3597, lng:-89.7713,
+   note:"Puuc-Architektur mit der ovalen Zauberer-Pyramide - für viele die schönste Maya-Stätte, mit einem Bruchteil der Chichén-Massen.",
+   juli:"8-Uhr-Einlass nutzen, um 11 ist die Hitze brutal. Wasser mitnehmen, es gibt kaum Schatten.",
+   meta:"1 Std. ab Mérida · Choco-Story nebenan"},
+  {cat:"must", name:"Chichén Itzá", lat:20.6843, lng:-88.5678,
+   note:"El Castillo, Ballspielplatz, Cenote Sagrado - Weltwunder und entsprechend voll.",
+   juli:"Nur mit 8-Uhr-Strategie sinnvoll: erste Stunde fast leer, ab 10.30 Busmassen aus Cancún plus 38-Grad-Hitze. Danach in eine Cenote abtauchen.",
+   warn:"Juli ist mexikanische Ferienzeit - Wochenende und Sonntag (Gratis-Eintritt für Mexikaner) meiden.",
+   meta:"Übernachtung in Valladolid statt Tagestour ab Küste"},
+  {cat:"stadt", name:"Valladolid", lat:20.6896, lng:-88.2011,
+   note:"Pastellfarbene Kolonialstadt auf halbem Weg zwischen Mérida und der Küste - ideale Cenoten-Basis mit kühlen Innenhöfen.",
+   juli:"Nachmittags Siesta wie die Einheimischen, abends auf die Plaza (Marquesitas probieren).",
+   meta:"Calzada de los Frailes für den Sonnenuntergang"},
+  {cat:"wasser", name:"Cenoten-Ring um Valladolid", lat:20.7075, lng:-88.1476,
+   note:"Oxman (Lianen-Sprung), Suytun (Lichtstrahl-Plattform), X'canché bei Ek Balam - unterirdische Süsswasser-Pools, konstant 25 Grad.",
+   juli:"Der Juli-Hack schlechthin: Mittagshitze unter der Erde überbrücken. Suytun-Lichtstrahl steht um die Mittagszeit am besten.",
+   meta:"Per Velo, Taxi oder Colectivo ab Valladolid"},
+  {cat:"wasser", name:"Cenotes Santa Bárbara (Homún)", lat:20.7333, lng:-89.2833,
+   note:"Drei sehr verschiedene Cenoten auf einem Gelände, per Velo oder Pferdebahn verbunden - Homúns Cenoten-Cluster ist der beste ab Mérida.",
+   juli:"Unter der Woche fast privat; am Wochenende kommen die Familien aus Mérida.",
+   meta:"1 Std. ab Mérida · Bargeld"},
+  {cat:"stadt", name:"Izamal", lat:20.9330, lng:-89.0180,
+   note:"Die komplett gelbe Stadt: Franziskanerkloster auf einer Maya-Plattform, Kutschen, Handwerk.",
+   juli:"Halbtagesstopp zwischen Mérida und Valladolid - morgens, das Gelb glüht in der Sonne.",
+   meta:"Kloster täglich, gratis"},
+  {cat:"ruine", name:"Ek Balam", lat:20.8917, lng:-88.1360,
+   note:"Noch besteigbare Akropolis mit perfekt erhaltenem Stuck-Monsterportal - danach Abkühlung in der Cenote X'canché direkt am Gelände.",
+   juli:"Kombination Ruine (früh) + Cenote (mittags) ist im Juli genau richtig.",
+   meta:"30 Min. ab Valladolid"},
+  {cat:"tiere", name:"Río Lagartos: Flamingo-Kolonie", lat:21.5970, lng:-88.1590,
+   note:"Biosphärenreservat mit der grossen Flamingo-Brutkolonie Mexikos, dazu Krokodile, Pelikane, Fregattvögel auf der Bootstour.",
+   juli:"Genau jetzt richtig: Juli = Küken-Zeit, die Jungen machen erste Flugversuche. (Celestún dagegen ist die Winter-Kolonie - im Juli fast leer.) Guides halten Brutschutz-Abstände ein.",
+   meta:"Bootstouren ab Malecón, ca. 2-3 Std."},
+  {cat:"tiere", name:"Las Coloradas: pinke Salinen", lat:21.6089, lng:-87.9856,
+   note:"Knallpinke Salzseen neben weissen Salzbergen - meist als Kombi mit der Río-Lagartos-Bootstour.",
+   juli:"Farbe ist bei hoher Verdunstung (Sonne mittags) am kräftigsten. Baden verboten, Drohnen nur mit Bewilligung.",
+   meta:"Nur mit offiziellem Guide ans Ufer"},
+  {cat:"stadt", name:"Campeche", lat:19.8454, lng:-90.5237,
+   note:"UNESCO-Festungsstadt in Bonbonfarben am Golf, fast ohne Auslandstourismus - Abendessen auf der Calle 59, Malecón-Sonnenuntergang.",
+   juli:"Ruhigste sichere Ecke der Halbinsel, gleiches Klima wie Mérida: Programm morgens/abends.",
+   meta:"2.5 Std. ab Mérida · Velo-Verleih am Malecón (GoBoard, ~200 MXN/Std.)"},
+  {cat:"ruine", name:"Edzná", lat:19.5969, lng:-90.2273,
+   note:"Fünfstöckiger Palast-Tempel, Wasserbau-System - und oft hat man die Anlage komplett für sich.",
+   juli:"Der Geheimtipp gegen Chichén-Massen: auch um 10 Uhr noch fast leer.",
+   meta:"1 Std. ab Campeche"},
+
+  // ================= Quintana Roo (Walhai-Peak, Sargassum-Ehrlichkeit) =================
+  {cat:"tiere", name:"Walhai-Schnorcheln ab Isla Mujeres", lat:21.2311, lng:-86.7343,
+   note:"Vor der Küste sammelt sich im Sommer die grösste Walhai-Ansammlung der Welt („Afuera“-Zone Richtung Isla Contoy) - schnorcheln neben 8-Meter-Fischen.",
+   juli:"DER Grund für Mexiko im Juli: Saison 15. Mai bis 17. September, Peak Juli/August mit den grössten Gruppen. Touren für Juli Wochen im Voraus buchen, kleine Boote wählen.",
+   meta:"Ca. 6 Uhr Abfahrt · Seekrankheits-Tablette",
+   warn:"EDA stuft Quintana Roo mit erhöhter Vorsicht ein - gilt v. a. für Nachtleben/Cancún-Stadt, nicht für die Bootstouren."},
+  {cat:"wasser", name:"Playa Norte (Isla Mujeres)", lat:21.2622, lng:-86.7521,
+   note:"Flacher, türkiser Karibikstrand an der Nordspitze der Insel - per Golfcart erkundbar, abends ruhig.",
+   juli:"Die verlässlichste sargassumfreie Bade-Option der Karibikküste: Lage nach Nordwesten schützt - im Juli 2026 laut Sargassum-Trackern „clear“, während Tulum voll liegt.",
+   meta:"Fähre ab Cancún 20 Min."},
+  {cat:"tiere", name:"Isla Holbox", lat:21.5218, lng:-87.3767,
+   note:"Autofreie Golf-Insel: Sandstrassen, Hängematten im Wasser, Walhai-Touren und nachts Biolumineszenz am Punta-Cocos-Strand.",
+   juli:"Doppel-Kombo im Juli: Walhai-Peak plus Leucht-Plankton (Juni-Sept., um Neumond am stärksten). Golfseite = kaum Sargassum.",
+   warn:"Regenzeit-Realität: Nach Güssen stehen die Sandstrassen unter Wasser, Mücken einplanen. Wenige Bankomaten - Bargeld mitnehmen.",
+   meta:"Fähre ab Chiquilá · Juli-Touren vorbuchen"},
+  {cat:"wasser", name:"Ruta de los Cenotes (Puerto Morelos)", lat:20.8100, lng:-86.9600,
+   note:"Cenoten-Strasse in den Dschungel: Verde Lucero, La Noria, Siete Bocas - offene und Höhlen-Cenoten weit weg vom Resort-Trubel.",
+   juli:"Wenn der Strand Sargassum hat, ist das hier der Plan B - glasklares Süsswasser, egal was das Meer macht. Puerto Morelos selbst lag zuletzt nur bei „light“.",
+   meta:"Mietauto oder Taxi ab Puerto Morelos"},
+  {cat:"tauch", name:"Cozumel: Westriffe", lat:20.3800, lng:-87.0300,
+   note:"Palancar, Columbia, Chankanaab: Drift-Tauchen und Schnorcheln am Arrecifes-Nationalpark - ein Weltklasse-Revier, von dem schon Cousteau schwärmte. Etablierte Basen wie Aldora Divers oder ScubaTony, Schnorchel-Highlight Punta Sur Eco Beach Park. An der Ostküste nicht baden - Strömung.",
+   juli:"28-Grad-Wasser, gute Sicht, und die Leeseite bleibt weitgehend sargassumfrei - Juli ist solide Tauchzeit (Hurrikan-Forecast checken).",
+   meta:"Fähre ab Playa del Carmen"},
+  {cat:"ruine", name:"Tulum-Ruinen", lat:20.2140, lng:-87.4290,
+   note:"Maya-Burg über der Karibik - als Foto-Klassiker weiterhin stark, als Badeort im Juli ehrlich gesagt schwach.",
+   juli:"Nur früh um 8 Uhr für die Ruinen kommen. Baden: Die Tulum-Strände fangen im Sommer 2026 die schwersten Sargassum-Mengen der Küste - stattdessen Gran Cenote/Calavera oder gleich Isla Mujeres.",
+   warn:"EDA erwähnt Tulum explizit (Schiesserei-Vorfall) - Nachtleben meiden, tagsüber unproblematisch.",
+   meta:"Parkplatz teuer, Colectivo ab Tulum Pueblo"},
+  {cat:"wasser", name:"Laguna Bacalar", lat:18.6770, lng:-88.3900,
+   note:"Die „Lagune der sieben Farben“: 40 km Süsswasser über weissem Kalkgrund, Stromatolithen, Segeln und SUP - kein Sargassum, weil keine Meeresküste.",
+   juli:"Funktioniert im Juli gut, mit einer Einschränkung: Nach mehrtägigem Starkregen kann die Lagune vorübergehend eintrüben. Morgens sind die Farben am stärksten.",
+   warn:"Ganz im Süden von Quintana Roo (EDA-Vorsicht, Nähe Chetumal) - tagsüber reisen.",
+   meta:"3.5 Std. ab Tulum, Übernachtung einplanen"},
+
+  // ================= Kajak & Paddeln (CDMX-Spots aus der Mexico-City-Karte importiert) =================
+  {cat:"kajak", name:"Embarcadero Cuemanco (Xochimilco)", lat:19.289158, lng:-99.101753,
+   note:"Der ruhige Zugang nach Xochimilco: Kajak- und Kanuverleih abseits des Trajinera-Trubels, durch stille Kanäle zwischen Chinampa-Feldern - Reiher und Eisvögel inklusive. Gleich nebenan die schnurgerade Olympia-Regattastrecke von 1968 (Pista Virgilio Uribe).",
+   juli:"Morgens paddeln: Kanäle voll Wasser und alles grün, das Gewitter kommt erst am Nachmittag. Auch bei grauem Regenzeit-Himmel gut - die Kanäle sind geschützt.",
+   warn:"Vormittags im belebten Hauptrevier bleiben - einsame Ecken der Regattastrecke und Abendstunden meiden (ältere Sicherheitsberichte zur Pista). Boote sind Freizeit-Sit-on-Tops, keine Tourenkajaks.",
+   meta:"Ruta del Ajolote: Tour ab ~300 MXN, mit Chinampa-Frühstück 450, ab 6 Uhr (auch Ajolotario) · Kayak 33 Komplett-Tour ~750 MXN · Verleih am Michmani-Gelände 8-17 Uhr"},
+  {cat:"kajak", name:"Lago de Chapultepec: Stadt-Kajak", lat:19.4140, lng:-99.1990,
+   note:"Die Spontan-Variante mitten in der Stadt: Kajak-Verleih am Lago Mayor der 2. Chapultepec-Sektion - 40 MXN/Std. (Einer), 60 MXN (Zweier), einfach hinlaufen, Ausweis als Pfand.",
+   juli:"Ideal für durchzogene Regenzeit-Tage: kein Commitment, und bei Platzregen bist du in 5 Minuten im Trockenen.",
+   meta:"Di-So 9-16.30 Uhr · Puerto Chico/Puerto Grande"},
+  {cat:"kajak", name:"Isla de las Muñecas (per Kajak)", lat:19.272245, lng:-99.088708,
+   note:"Die berüchtigte Puppeninsel tief in den Kanälen: hunderte verwitterte Puppen, die der Einsiedler Don Julián über Jahrzehnte aufhängte. Nur per Boot oder Kajak erreichbar.",
+   juli:"Gut 2 Stunden ab Cuemanco - früh los, damit der Rückweg vor dem Nachmittagsregen liegt.",
+   meta:"Lange Tour, beim Verleih anmelden"},
+  {cat:"kajak", name:"Parque Ecológico de Xochimilco", lat:19.293688, lng:-99.096242,
+   note:"Feuchtgebiet-Schutzzone mit Lagunen und Vogelbeobachtung, hier laufen die Zuchtprojekte für den Axolotl - der stille Gegenpol zum Partyteil von Xochimilco.",
+   juli:"Regenzeit heisst Wasserstand und Vogelleben auf Maximum.",
+   meta:"Periférico Sur · Eintritt günstig"},
+  {cat:"kajak", name:"Valle de Bravo", lat:19.201123, lng:-100.131536,
+   note:"Bergsee-Städtchen und CDMX-Wochenendziel: Kajak, SUP und Segeln auf dem Stausee, drumherum Pinienwälder, Gleitschirme und die Wanderung zur La-Peña-Aussicht.",
+   juli:"Regenzeit füllt den See und färbt die Hügel grün - vormittags ist das Wasser am ruhigsten. Wochenenden sind voll, unter der Woche fast privat.",
+   meta:"Gut 2 Std. westlich von CDMX · Pueblo Mágico"},
+  {cat:"kajak", name:"Bacalar per Kajak & Los Rápidos", lat:18.6795, lng:-88.3888,
+   note:"Die Lagune der sieben Farben vom Wasser aus: Sonnenaufgangs-Kajaktouren ab dem Ort, dazu Los Rápidos 15 km südlich - ein schmaler Kanal mit sanfter Strömung zwischen Stromatolithen.",
+   juli:"Um 6.30 Uhr ist die Lagune spiegelglatt und leer - vor Hitze und Wind. Stromatolithen nie berühren oder betreten.",
+   warn:"Ganz im Süden von Quintana Roo (EDA-Vorsicht) - tagsüber reisen.",
+   meta:"Mehrere Verleiher am Malecón"},
+  {cat:"kajak", name:"Holbox: Mangroven-Kajak", lat:21.5310, lng:-87.3600,
+   note:"Geführte Kajaktouren durch die Mangrovenkanäle der Yum-Balam-Schutzzone: Sonnenaufgang mit Vögeln - oder nachts im leuchtenden Plankton paddeln.",
+   juli:"Kombinierbar mit dem Walhai-Peak; die Nacht-Tour wirkt um Neumond am stärksten.",
+   meta:"Ab Holbox-Dorf, ca. 2-3 Std."},
+
+  // ================= Wingfoil =================
+  {cat:"wing", name:"El Cuyo: Wingfoil-Flachwasser", lat:21.5162, lng:-87.6778,
+   note:"Kilometerlanges stehtiefes Flachwasser am Golf, Sandboden, viel Platz und ein kleines Kite-/Wing-Dorf ohne Trubel - mit Schulen und Materialverleih.",
+   juli:"Saison läuft Nov.-Juli: im Juli weht der Passat leichter (oft 12-18 Knoten nachmittags) - genau das Foil-Fenster. ACHTUNG fürs Fenster Ende Juli/Anfang August: Ab August flaut es bis Oktober ab - Ende Juli ist die letzte verlässliche Woche, danach ist Calima oder Jeri die bessere Wing-Wahl.",
+   meta:"2.5 Std. ab Valladolid oder Mérida · Wing-Kurse buchbar"},
+  {cat:"wing", name:"Isla Blanca: Lern-Lagune (Cancún)", lat:21.3744, lng:-86.7929,
+   note:"Riesige stehtiefe Lagune auf der Sandzunge nördlich von Cancún - der bekannteste Flachwasser-Lernspot der Karibikküste, Schulen ganzjährig.",
+   juli:"Ausserhalb der Kernsaison (Nov.-Juni): Wind unbeständiger, Sessions eher früh oder mit der Nachmittags-Seebrise - für Foil-Übungsschläge reicht es oft trotzdem.",
+   warn:"Im Juli keine Wind-Garantie - als Kombi mit Walhai/Isla Mujeres planen, nicht als Hauptziel.",
+   meta:"30 Min. ab Cancún, sandige Zufahrt · Schulen: Icarus Kite Centre, Kitesurf Mexico"},
+
+  // ================= Surfen (Juli = Süd-Swell-Saison am Pazifik) =================
+  {cat:"surf", name:"La Punta (Zicatela-Südende)", lat:15.8375, lng:-97.0340,
+   note:"Die entspannte Schwester der grossen Zicatela: Point Break mit langen Linkswellen, Surfschulen, Strandbars und Backpacker-Szene im Viertel Brisas de Zicatela.",
+   juli:"Sehr konstante Wellen (Süd-Swell-Saison) - an grossen Tagen auch hier kräftig, dann früh morgens gehen oder nach Carrizalillo ausweichen.",
+   meta:"Boards und Kurse direkt am Strand, z. B. Puerto Surf (Einzel- und Gruppenstunden)"},
+  {cat:"surf", name:"Playa Carrizalillo (Anfänger-Bucht)", lat:15.8596, lng:-97.0785,
+   note:"Geschützte Bucht mit sanft brechender Welle - der klassische Lernspot von Puerto Escondido, Zugang über die lange Treppe.",
+   juli:"Auch in der grossen Swell-Saison meist gutmütig: Surfkurse starten morgens um 9 Uhr, danach Badebucht.",
+   meta:"Kurse ca. 2.5 Std., Board inklusive"},
+  {cat:"surf", name:"Barra de la Cruz", lat:15.8397, lng:-95.9706,
+   note:"Weltklasse-Rechtswelle östlich von Huatulco, von der Dorfgemeinschaft verwaltet: Eintritt, Palapa mit Essen, keine Hotels am Strand.",
+   juli:"Genau die Saison: Die Welle lebt von Süd-Swells (ca. April-Sept.) und läuft im Juli am zuverlässigsten. Für Fortgeschrittene.",
+   warn:"Anfahrt via Küstenstrasse 200 tagsüber - EDA rät von abgelegenen Strassen nach Einbruch der Dunkelheit ab.",
+   meta:"45 Min. ab Huatulco · Bargeld für den Community-Eintritt"},
+  {cat:"surf", name:"Chacahua: Surf-Camp im Nationalpark", lat:16.0019, lng:-97.7200,
+   note:"Lagunen, Mangroven und ein Fischerdorf mit sandigem Beach Break - Surf-Camps, Hängematten, kaum Strom-Luxus. Nachts leuchtet auch hier das Plankton.",
+   juli:"Regenzeit = grüne Lagunen und leere Line-ups; die Welle ist gutmütiger als Zicatela. Biolumineszenz um Neumond.",
+   warn:"Abgelegen, nur per Boot/Piste erreichbar - einfache Unterkünfte, Bargeld und Mückenschutz mitnehmen.",
+   meta:"Ab Puerto Escondido: Colectivo + Boot ab El Zapotalito, ca. 2 Std."},
+
+  // ================= Wandern & Berge (Hochland: früh starten, Gewitter ab Mittag) =================
+  {cat:"wandern", name:"Nevado de Toluca: Kraterseen", lat:19.1079, lng:-99.7555,
+   note:"Erloschener 4680-m-Vulkan mit zwei Kraterseen (Sonne und Mond). Vom Parkplatz zum Kraterrand und zu den Seen sind es je nach Route 1-3 Std. - Höhenluft garantiert.",
+   juli:"Falls wieder offen, gilt: nur mit Frühstart - vormittags oft klar, ab Mittag Wolken, Graupel und Blitze. Warm anziehen (oben um 5 Grad) und vorher 1-2 Tage in CDMX akklimatisieren.",
+   warn:"GESPERRT (Stand Juli 2026): Zugang seit dem Unfall vom 10.8.2025 zu, CONANP büsst nicht autorisierte Aufstiege. Geplantes neues Modell: nur zu Fuss ab Parque de los Venados, Di-So 8-15 Uhr - Termin unbestätigt. Vor Anreise Status bei CONANP prüfen; Alternative: La Malinche.",
+   meta:"Status: gob.mx/conanp · bis zur Öffnung NICHT hinfahren"},
+  {cat:"wandern", name:"Iztaccíhuatl ab Paso de Cortés", lat:19.0864, lng:-98.6468,
+   note:"Der Sattel zwischen Popocatépetl und Iztaccíhuatl: Tageswanderungen ab La Joya Richtung Refugio (bis ca. 4700 m) mit Blick auf den rauchenden Popo - der selbst gesperrt ist.",
+   juli:"4-Uhr-Start ist Pflicht, Gewitter am Berg ab frühem Nachmittag. Registrierung am Parkeingang, Guide für alles oberhalb der Refugio-Route.",
+   warn:"Unter der Woche ist der Berg einsam - dann mit Guide oder Begleitung gehen. Am La-Joya-Parkplatz sind Autoaufbrüche dokumentiert: nichts im Auto lassen, besser mit Fahrer/Tour statt Mietauto über Nacht.",
+   meta:"Zufahrt via Amecameca · Checkpoint + Parkgebühr am Paso de Cortés"},
+  {cat:"wandern", name:"Ajusco: Pico del Águila (CDMX)", lat:19.2210, lng:-99.2560,
+   note:"Der Hausberg von Mexiko-Stadt: vom Stadtrand auf 3930 m, mit Blick über das ganze Tal - machbar als halber Tag mit Uber-Anreise. Rundweg ab Albergue Alpino über Pico del Águila (3880 m) und Cruz del Marqués (3930 m), ~6.8 km, letzte 200 m einfache Kraxelei.",
+   juli:"Beliebte Akklimatisierungs-Tour vor Toluca oder Izta. Am Sonntagvormittag im Strom der Gruppen gehen (Start ~8 Uhr mit den ersten Familien, nicht allein vorweg); Wege nach Regen rutschig, Offline-Track laden (Empfang lückig).",
+   warn:"Lokale Medien meldeten 2025 Überfälle auf Wanderer und Biker im Ajusco-Gebiet (Ziel: Ausrüstung) - nur die belebte Hauptroute am Wochenende, keine einsamen Varianten oder Solo-Frühstarts; Alternative: geführte Gruppe ab CDMX. Wertsachen minimal, nichts sichtbar im Auto.",
+   meta:"Start „Albergue Alpino Ajusco“ oder „El Abrevadero“ (Uber ~250-350 MXN)"},
+  {cat:"wandern", name:"La Malinche (4460 m)", lat:19.2322, lng:-98.0442,
+   note:"Der gutmütigste hohe Gipfel Mexikos: langer, technisch einfacher Anstieg durch Kiefernwald bis zum felsigen Gipfelgrat - perfekter erster 4000er.",
+   juli:"Start vor Sonnenaufgang am Centro Vacacional, Gipfel vor Mittag, runter vor dem Gewitter. Die Regenzeit ist zudem Pilz-Monat in den Wäldern. Auch unter der Woche der entspannteste der hohen Berge: Basis ist der bewachte IMSS-Ferienkomplex (24-h-Sicherheit), Tlaxcala gehört zu den ruhigsten Bundesstaaten.",
+   meta:"Basis Centro Vacacional Malintzi · ab Puebla 1 Std."},
+  {cat:"wandern", name:"Pueblos Mancomunados (Sierra Norte)", lat:17.1189, lng:-96.4525,
+   note:"Acht Zapoteken-Bergdörfer (u. a. Cuajimoloyas, Latuvi, Benito Juárez) mit gemeinschaftlich betriebenem Wandernetz: Dorf-zu-Dorf-Etappen durch Nebelwald, einfache Hütten und lokale Guides. Die Routen sind auch als MTB-Touren fahrbar (Guides/Bikes ab Oaxaca-Stadt).",
+   juli:"Regenzeit heisst hier Wolkenwald in Bestform, Pilze und grüne Wiesen - Regenjacke einpacken, Nächte auf 3000 m kalt. Die Guide-Struktur macht die Region auch nach EDA-Massstab gut machbar.",
+   meta:"Buchung via Expediciones Sierra Norte in Oaxaca-Stadt"},
+
+  // ================= Tauchen & Schnorcheln =================
+  {cat:"tauch", name:"Parque Dos Ojos: Cavern-Tauchen", lat:20.3247, lng:-87.3906,
+   note:"Das berühmteste Cenoten-Höhlensystem der Riviera Maya: geführte Schnorcheltouren durch die Kavernen für alle, Cavern-Dives mit Tulumer Basen wie La Calypso oder Flying Fish für Brevetierte - Stalaktiten, Lichtkegel, glasklares Süsswasser.",
+   juli:"Der wetterfeste Juli-Trumpf: 25 Grad Wasser, egal ob draussen Hitze, Regen oder Sargassum herrscht. Früh kommen, ab Mittag Tour-Gruppen.",
+   meta:"Zwischen Tulum und Akumal · Gran Cenote und Zacil-Há gleich daneben"},
+  {cat:"tauch", name:"Banco Chinchorro ab Mahahual", lat:18.7257, lng:-87.7072,
+   note:"Das zweitgrösste Atoll-Riff der Welt, Biosphärenreservat mit Schiffswracks, Riffhaien und intakten Korallen - Tagesausflüge ab dem entspannten Strandort Mahahual (lokale Basen wie Doctor Dive).",
+   juli:"Sommer = beste Chancen auf die ruhige See, die die 2-Stunden-Überfahrt braucht (wetterabhängig, Puffertag einplanen).",
+   warn:"Ganz im Süden von Quintana Roo (EDA-Vorsicht) und abgelegen - Anreise tagsüber, NHC-Wetterlage checken.",
+   meta:"100 km östlich von Bacalar · gut kombinierbar"},
+  {cat:"tauch", name:"Bahías de Huatulco: Buchten & Riffe", lat:15.7692, lng:-96.1355,
+   note:"Neun Buchten im Nationalpark (119 km² geschützt): Tauchen mit dem Huatulco Dive Center (PADI), Schnorchel-Ausflüge mit Hurricane Divers, dazu die Seven-Bays-Bootstour der lokalen Kooperative Huatulco Salvaje. Kurze Küsten-Wanderungen zur Bahía El Órgano und zur Cascada Arcoíris.",
+   juli:"Pazifik-Vorteil: kein Sargassum. Regenzeit-Rhythmus wie an der ganzen Küste - Wasserprogramm morgens, Schauer am Abend.",
+   meta:"Flug via CDMX oder Oaxaca (HUX) · Basis La Crucecita"},
+
+  // ================= Velo & MTB =================
+  {cat:"velo", name:"Cobá: Ruinen per Velo", lat:20.4936, lng:-87.7354,
+   note:"Die Dschungel-Ruinenstadt mit der höchsten Pyramide Quintana Roos erkundet man am besten per Mietvelo - der Verleih steht gleich hinter dem Eingang, die Pisten führen kilometerweit unter Baumdächern zu den Tempelgruppen.",
+   juli:"Um 8 Uhr rein: schattig-kühl und fast leer, während Chichén schon voll ist. Danach in die Cenoten Choo-Ha und Multum-Ha abtauchen.",
+   meta:"1 Std. ab Tulum oder Valladolid"},
+  {cat:"velo", name:"Valladolid: Cenoten-Velotour", lat:20.6850, lng:-88.2110,
+   note:"Bike Tour Valladolid fährt ganztägige Runden zu Cenoten und Dörfern (ca. 650 MXN, Buchung per WhatsApp), Vallarent vermietet Velos für die eigene Cenoten-Runde - die flache Umgebung ist ideales Veloterrain.",
+   juli:"Früh starten, die Cenoten-Stopps sind die eingebaute Abkühlung mittags.",
+   meta:"Verleih wenige Blocks westlich vom Parque Principal"},
+  {cat:"velo", name:"Oaxaca: MTB mit Pedro Martínez", lat:17.0625, lng:-96.7175,
+   note:"Bicicletas Pedro Martínez - der Shop des Olympia-Medaillengewinners - fährt MTB-Touren durch den ganzen Bundesstaat, inklusive Mehrtagestrips in die Sierra Norte. Abends: die gratis Paseos Nocturnos von Mundo Ceiba, eine 8-km-Nachtausfahrt durchs Zentrum (Velo-Miete ~150 MXN).",
+   juli:"Hochland-Regenzeit: Trails vormittags fahren, die Nachtausfahrt läuft nach dem Abendgewitter.",
+   meta:"Beide im Zentrum von Oaxaca-Stadt"},
+  {cat:"velo", name:"Querétaro: Wein & Käse per Velo", lat:20.5205, lng:-99.8940,
+   note:"Bike Tour Querétaro (ab 2 Personen, ~1700 MXN) radelt zu Weingütern und Käsereien rund um Tequisquiapan und Bernal - inklusive Degustationen und auf Wunsch einer Opal-Minen-Tour.",
+   juli:"Passt perfekt zur Vendimia-Zeit ab Ende Juli - Lese-Stimmung auf den Gütern, morgens fahren, mittags degustieren.",
+   meta:"Ab Tequisquiapan/Querétaro · @biketourqueretaro"},
+
+  // ================= Weitere Funde: Surf & Wandern =================
+  {cat:"surf", name:"Mazunte & San Agustinillo", lat:15.6676, lng:-96.5537,
+   note:"Die Bohème-Ecke der Oaxaca-Küste: sanfte Lernwellen an der Playa Elefantes (Ocean Surf School, Kurse + Verleih) und die Sonnenuntergangs-Wanderung zur Punta Cometa, dem südlichsten Punkt Oaxacas.",
+   juli:"Regenzeit = ruhige Saison mit gutmütigeren Wellen als an der Zicatela - ideal zum Surf-Lernen.",
+   warn:"An offenen Abschnitten (v. a. Zipolite) starke Rip-Strömungen - nur dort baden, wo Einheimische baden.",
+   meta:"1 Std. ab Puerto Escondido, 40 Min. ab Flughafen Huatulco"},
+  {cat:"wandern", name:"San José del Pacífico (2500 m)", lat:16.1683, lng:-96.5032,
+   note:"Bergdorf im Nebelwald auf halbem Weg zwischen Oaxaca-Stadt und der Küste: alpine Trails mit Wolkenmeer-Blick, Temascal-Schwitzhütten und die berühmte Pilz-Kultur der Region.",
+   juli:"Regenzeit = Hochsaison der Pilze und die spektakulärsten Wolkenmeere - Wege matschig, abends kühl auf 2500 m.",
+   meta:"2.5 Std. ab Oaxaca Richtung Küste · idealer Zwischenstopp nach Mazunte"},
+  {cat:"wandern", name:"Sierra Gorda (Querétaro)", lat:21.3841, lng:-99.3265,
+   note:"Biosphärenreservat über einen Drittel des Bundesstaats: Nebelwald, Wasserfälle, Höhlen, Aras - und die fünf UNESCO-Franziskanermissionen. Der grosse Übersehene unter Mexikos Naturräumen: kaum Besucher.",
+   juli:"Regenzeit füllt die Wasserfälle (Chuvejé, El Chuveje-Trail), in den Tallagen schwül - Missionen-Route als Schlechtwetter-Programm.",
+   warn:"Kurvenreiche Bergstrecke ab Querétaro (3.5 Std.) - tagsüber fahren.",
+   meta:"Basis Jalpan de Serra"},
+
+  // ================= Nachprüfung (2. Durchgang) =================
+  {cat:"surf", name:"Sayulita & Punta Mita (Nayarit)", lat:20.8689, lng:-105.4407,
+   note:"Das Surf-Lerndorf des Pazifiks: sanfte Wellen direkt am Ort, dazu die Point Breaks um Punta de Mita - El Anclote (lang und gutmütig, auch SUP) und La Lancha für Fortgeschrittene. Ruhigere Alternative nebenan: San Pancho mit botanischem Garten und der Cerro-del-Mono-Wanderung.",
+   juli:"Regenzeit = warme, leerere Wellen und grünes Hinterland - schwül, aber surfbar. Wichtig: Nayarit steht auf keiner EDA-Warnliste (anders als Jalisco nebenan).",
+   warn:"Anreise via Flughafen Puerto Vallarta (Jalisco, EDA-Vorsicht): Transfer tagsüber direkt nach Sayulita (45 Min.).",
+   meta:"Boards/Kurse überall im Ort · Zeitzonen-Falle: Sayulita tickt auf Mexiko-Stadt-Zeit"},
+  {cat:"tauch", name:"Islas Marietas (Punta Mita)", lat:20.6989, lng:-105.5851,
+   note:"Geschützter Marine-Nationalpark 10 km vor Punta de Mita: Riff-Fische, Mantas, Schildkröten - und die berühmte Playa Escondida im Vulkankrater, erreichbar nur schwimmend durch einen 200-m-Lavatunnel (limitiert auf 116 Personen/Tag). Schnorcheltouren ab ca. 85 USD, Tauch-Tagesausflüge ab ca. 160 USD, auch für frische PADI-Brevets.",
+   juli:"Sommer = warmes, ruhiges Wasser in der Bucht; Hidden-Beach-Permit früh sichern (Kontingent).",
+   meta:"Boote ab El Anclote/Punta de Mita"},
+  {cat:"tiere", name:"Isla Contoy: Vogelinsel", lat:21.4972, lng:-86.7939,
+   note:"Nationalpark an der Nordspitze der Halbinsel, wo Golf und Karibik sich treffen: über 170 Vogelarten (Fregattvögel, Pelikane), Mangroven-Trail, 27-m-Aussichtsturm, Traumstrand - Tagesausflüge streng limitiert.",
+   juli:"Flamingos sind April-September auf der Insel - Juli passt. Gut mit der Walhai-Tour kombinierbar (gleiches Revier).",
+   meta:"1-2 Std. ab Cancún/Isla Mujeres, ca. 145 USD inkl. Schnorchel-Stopp"},
+  {cat:"kajak", name:"Jalcomulco: Wildwasser (Veracruz)", lat:19.3351, lng:-96.7527,
+   note:"Mexikos Rafting-Hauptstadt am Río Antigua: Stromschnellen für alle Levels, dazu Höhlen, Badestellen und Temascal-Camps im Dschungeltal. Gilt als eines der besten Wildwasser-Reviere des Landes (technischere Alternative: Río Filobobos bei Tlapacoyan).",
+   juli:"Regenzeit = viel Wasser auf den Rapids, Hochsaison fürs Rafting. Vorab bei einem etablierten Anbieter buchen (Mindestteilnehmerzahl).",
+   warn:"Veracruz steht auf der EDA-Vorsichtsliste - organisiert mit Anbieter reisen (45 Min. ab Xalapa), tagsüber.",
+   meta:"Anbieter mit Camp buchen, Wochenenden voll"},
+  {cat:"wandern", name:"Aqueduct Trail (San Agustín Etla)", lat:17.2040, lng:-96.7181,
+   note:"Stiller Wander-Klassiker bei Oaxaca: 9.6 km dem Aquädukt aus dem 19. Jh. entlang, mit Weitblick übers Valle de Etla, bis zur verlassenen (angeblich verwunschenen) Wasserkraftzentrale La Planta. Vorher Kunststopp im CASA-Kulturzentrum in der alten Textilfabrik.",
+   juli:"Vormittags gehen (Gewitterlogik des Hochlands); vorab Registrierung bei der Agencia Municipal ist offiziell verlangt.",
+   meta:"45 Min. ab Oaxaca-Stadt · Start östlich vom CASA"},
+
+  // ================= Südamerika-Alternativen (Juli = Anden-Trockenzeit; EDA-geprüft) =================
+  {cat:"sam", name:"Cusco & Heiliges Tal (Peru)", lat:-13.5171, lng:-71.9785,
+   note:"Machu Picchu, Pisac, Ollantaytambo und die Inka-Hauptstadt selbst - 🥾 Tageswanderungen und Mehrtages-Treks (Salkantay statt dem ausgebuchten Inka-Trail).",
+   juli:"Trockenzeit-Höhepunkt: stabil sonnig, nachts kalt - aber auch Hochsaison. Machu-Picchu-Tickets Wochen im Voraus; um die Fiestas Patrias (28./29. Juli) ist alles voll.",
+   warn:"EDA rät nur von VRAEM-Region und Grenzgebieten ab - die Touristen-Achse Cusco/Valle Sagrado ist davon weit weg.",
+   meta:"Flug via Lima · 3400 m, 2 Tage akklimatisieren"},
+  {cat:"sam", name:"Huaraz & Cordillera Blanca (Peru)", lat:-9.5299, lng:-77.5290,
+   note:"Das Weltklasse-Trekking-Revier Südamerikas: Laguna 69, Santa-Cruz-Trek (4 Tage), Pastoruri - 6000er-Kulisse ohne Permit-Bürokratie. 🥾",
+   juli:"Juni-August ist DAS stabile Wetterfenster im Jahr: tagsüber klar, nachts frostig. Vor den Treks 2-3 Tage auf 3000 m akklimatisieren.",
+   meta:"8 Std. Bus oder 1 Std. Flug ab Lima (Anta)"},
+  {cat:"sam", name:"Colca-Canyon & Arequipa (Peru)", lat:-15.6417, lng:-71.5731,
+   note:"Einer der tiefsten Canyons der Welt: Kondore am Cruz del Cóndor, Terrassendörfer, Thermalquellen - dazu die weisse Stadt Arequipa als Basis. 🥾",
+   juli:"Trockenzeit: verlässlich klare Morgen für die Kondor-Thermik (vor 9 Uhr dort sein), nachts um den Gefrierpunkt.",
+   meta:"Chivay 3600 m · 3 Std. ab Arequipa"},
+  {cat:"sam", name:"Titicaca: Kajak ab Llachón (Peru)", lat:-15.7229, lng:-69.7839,
+   note:"🛶 Seekajak auf 3800 m: Von der Halbinsel Capachica zu den Inseln Amantaní und Taquile paddeln, übernachtet wird bei Familien im Dorf - das ruhige Gegenprogramm zu den Puno-Massentouren.",
+   juli:"Trockenzeit = spiegelglatte Morgen und klare Sicht bis Bolivien; mittags kann Wind aufkommen, nachts deutlich unter null.",
+   meta:"1.5 Std. ab Puno · Kajaks bei den Community-Anbietern"},
+  {cat:"sam", name:"Chicama & Pacasmayo (Nordperu)", lat:-7.4010, lng:-79.5700,
+   note:"🏄 Chicama gilt als längste linke Welle der Welt (bis 2 km Ritt), Pacasmayo nebenan ist ihre grosse Schwester mit Hotel-Reihe am Point - und nachmittags konstantem Wind für 🪁 Wellen-Kiten/-Wingen.",
+   juli:"Süd-Swell-Saison auf dem Peak: Juli bringt die zuverlässigsten Tage, dazu Nebelwinter-Grau (Garúa) - Wasser 17-19 Grad, Neopren nötig.",
+   meta:"2 Std. ab Trujillo · Boards/Material vor Ort"},
+  {cat:"sam", name:"Salar de Uyuni (Bolivien)", lat:-20.4628, lng:-66.8239,
+   note:"Die grösste Salzfläche der Welt plus 3-Tages-Tour zu den Farb-Lagunen (Laguna Colorada, Flamingos, Geysire) an der chilenischen Grenze.",
+   juli:"Trockenzeit: gleissend weisse Kruste und die klarsten Sternennächte des Jahres - der berühmte Spiegeleffekt gehört aber zur Regenzeit (Dez.-März). Nachts bis -15 Grad, guten Schlafsack verlangen.",
+   warn:"EDA Bolivien: Mit Strassenblockaden und Protesten rechnen - Puffertage vor dem Rückflug einplanen.",
+   meta:"Ab Uyuni-Stadt (Flug via La Paz) oder ab San Pedro de Atacama"},
+  {cat:"sam", name:"Copacabana & Isla del Sol (Bolivien)", lat:-16.1657, lng:-69.0854,
+   note:"Die bolivianische Titicaca-Seite: Wanderung über den Grat der Isla del Sol mit Inka-Ruinen und Homestays, Boote ab Copacabana. 🥾",
+   juli:"Klar und sonnig bei Tag, eisig bei Nacht - die Aymara-Neujahrsfeste um den 21. Juni klingen im Juli noch nach.",
+   warn:"EDA Bolivien: Blockade-Risiko auch auf der Strecke La Paz-Copacabana - Lage vor Fahrten prüfen.",
+   meta:"3.5 Std. ab La Paz"},
+  {cat:"sam", name:"Galápagos (Ecuador)", lat:-0.7472, lng:-90.3134,
+   note:"Juli gehört zur nährstoffreichen Garúa-Saison: Wasser kühler, dafür Tierleben auf Maximum - Blaufusstölpel balzen, Wale und Delfine ziehen durch, Schnorcheln mit Robben und Pinguinen.",
+   juli:"Gute Juli-Wahl: aktivste Tierwelt des Jahres, 3-mm-Neopren fürs Schnorcheln (Wasser 20-22 Grad). Land-Hopping ab Puerto Ayora geht auch ohne Kreuzfahrt.",
+   warn:"Anreise via Guayaquil: EDA rät von der Stadt ab, der reine Flughafen-Transit ist aber ausdrücklich ausgenommen - oder via Quito fliegen.",
+   meta:"Nationalpark-Gebühr + Transitkarte einplanen"},
+  {cat:"sam", name:"Quilotoa & Anden-Loop (Ecuador)", lat:-0.8592, lng:-78.9042,
+   note:"Türkise Kraterlagune auf 3900 m mit 🛶 Kajak-Verleih unten am Wasser und dem 3-Tages-Wanderloop Sigchos-Chugchilán-Quilotoa von Hostal zu Hostal. 🥾",
+   juli:"Im Hochland-Sommer (Jun.-Sept.) am trockensten: morgens klare Kraterblicke, nachmittags Wind. Nachts kalt.",
+   warn:"EDA Ecuador: Küstenstädte (Guayaquil, Esmeraldas) und Grenze zu Kolumbien meiden - das Anden-Hochland ist die ruhige Achse.",
+   meta:"Ab Latacunga · Busse tagsüber"},
+  {cat:"sam", name:"Salento & Valle de Cocora (Kolumbien)", lat:4.6373, lng:-75.5698,
+   note:"Kaffeezone: Wanderung durch das Wachspalmen-Tal, Fincas mit Verkostung, buntes Balkon-Städtchen. 🥾",
+   juli:"Mitte Juni bis August liegt das kleine Trockenfenster (Veranillo) der Kaffeezone - beste Wandersicht, ewiger Frühling um 22 Grad.",
+   warn:"EDA Kolumbien: Abraten gilt für Chocó, Nariño, Putumayo, Arauca, Norte de Santander u. a. - die Kaffeezone liegt ausserhalb; Überlandfahrten trotzdem nur tagsüber.",
+   meta:"Flug nach Pereira/Armenia via Bogotá"},
+  {cat:"sam", name:"Guatapé & Medellín (Kolumbien)", lat:6.2342, lng:-75.1617,
+   note:"Der Stausee mit den tausend Buchten: 740 Stufen auf den Piedra del Peñol, danach 🛶 Kajak/SUP zwischen den Inseln - Basis ist Medellín mit seinem ewigen Frühling.",
+   juli:"Juli ist in Antioquia vergleichsweise trocken und mild - Comuna-13- und Guatapé-Tage gut kombinierbar.",
+   meta:"2 Std. ab Medellín · unter der Woche ruhiger"},
+  {cat:"sam", name:"Lago Calima: Wind-See (Kolumbien)", lat:3.8925, lng:-76.4955,
+   note:"🪁 Einer der windsichersten Binnenseen Südamerikas (1486 m): Thermik ab ca. Mittag, den ganzen Nachmittag. Schulen am Nordufer bei Darién, u. a. Wingfoil Colombia (Club Náutico El Brujo, Wing-Basiskurs ab ca. 290'000 COP), Calima Kitesurf School, Pescao. Wasser konstant 18-20 Grad - Shorty mitnehmen.",
+   juli:"Juni-September sind die stärksten Windmonate (nachmittags typisch 15-25 Knoten) - genau dann, wenn in Mexiko der Passat abflaut. Aber: Thermik braucht Sonne, an Regentagen kein Wind. Unter der Woche fast leer, am Wochenende kommt Cali.",
+   warn:"Anfahrt ab Cali tagsüber auf der Hauptroute; Buenaventura-Richtung (Chocó-Küste) meiden (EDA).",
+   meta:"Direktflug MEX-Cali (Avianca, 6x/Wo.) · TransCalima-Bus ab Terminal Cali, 3. Stock, stündlich 6-19 Uhr, ~16'000 COP, 2.5 Std."},
+  {cat:"sam", name:"Jericoacoara (Brasilien)", lat:-2.8986, lng:-40.4506,
+   note:"Sandstrassen-Dorf zwischen Dünen und Flachwasser-Lagunen (Tatajuba, Guriú): 🪁 Wing- und Kite-Mekka mit Schulen, dazu Capoeira-Sonnenuntergang auf der Düne.",
+   juli:"Die Passat-Saison startet genau jetzt (Juli-Januar) und wird bis Oktober immer stabiler - Juli ist der entspannte Saisonauftakt mit weniger Betrieb.",
+   warn:"EDA Brasilien: Grossstadt-Kriminalität (Fortaleza) - Transfer tagsüber direkt ab Flughafen buchen.",
+   meta:"4-5 Std. Transfer ab Fortaleza · Buggy/4x4 im Ort"},
+  {cat:"sam", name:"San Pedro de Atacama (Chile)", lat:-23.3545, lng:-67.9027,
+   note:"Wüsten-Basislager: Valle de la Luna, El-Tatio-Geysire, Salzlagunen und die besten Sternenhimmel-Touren des Kontinents.",
+   juli:"Südwinter = klarste Nächte des Jahres für Astro-Touren; tagsüber mild-sonnig, El Tatio frühmorgens bei -10 Grad. Kombinierbar mit Uyuni (3-Tages-Überfahrt).",
+   meta:"Flug Santiago-Calama · 2400 m Basis"},
+  {cat:"sam", name:"Iguazú-Fälle (Argentinien/Brasilien)", lat:-25.6925, lng:-54.4411,
+   note:"275 Fälle im Regenwald: argentinische Seite für die Pasarelas bis an die Garganta del Diablo, brasilianische Seite fürs Panorama.",
+   juli:"Angenehm milde 20-25 Grad statt Sommerschwüle. Die brasilianischen Winterferien enden Anfang August - genau dann leeren sich die Stege. Wasserstand meist satt.",
+   meta:"2 Tage einplanen (beide Seiten) · Flüge nach IGR/IGU"}
+];
+
+const ZONES = [{"n":"Chihuahua","lvl":"red","g":{"type":"Polygon","coordinates":[[[-109.0749842,28.2724889],[-109.0319947,28.018227],[-108.869241,27.8390318],[-108.920341,27.784752],[-108.7844244,27.7304898],[-108.739929,27.6011369],[-108.6522059,27.537834],[-108.5909904,27.3179896],[-108.663025,27.2201649],[-108.6021786,27.0369847],[-108.5025527,26.9873805],[-108.4797776,27.039476],[-108.3333731,27.0045097],[-108.1942931,27.0320969],[-108.2302578,26.9056289],[-108.1421167,26.9072035],[-108.0056204,26.7609866],[-108.0116847,26.6896679],[-108.0816525,26.6419294],[-107.9610533,26.5270646],[-108.0127278,26.4389103],[-107.8539671,26.1964841],[-107.7806742,26.1368651],[-107.5820272,26.1706401],[-107.5200199,26.1042271],[-107.4310426,26.1428599],[-107.3465278,26.1095231],[-107.2763462,26.0019765],[-107.2961282,25.9247934],[-107.0579047,25.7573679],[-107.0461442,25.6998752],[-106.9653226,25.6978785],[-106.9944385,25.6616845],[-106.8933006,25.6440905],[-106.8733096,25.5716611],[-106.6819681,25.5793321],[-106.7077224,25.6021947],[-106.6525694,25.558657],[-106.4633762,25.728722],[-106.5558058,25.691778],[-106.5469641,25.9520973],[-106.4554474,25.9724856],[-106.4559964,26.0969888],[-106.2870013,26.3347463],[-106.2799208,26.5315691],[-106.2330853,26.5587536],[-106.2078244,26.6781783],[-106.1306248,26.7007076],[-106.1776264,26.7721946],[-106.1006519,26.7592846],[-106.0473664,26.8447877],[-105.7757768,26.6609146],[-105.7941986,26.6987288],[-105.7462738,26.7138378],[-105.6748543,26.6176485],[-105.6008907,26.6147531],[-105.6195559,26.6835035],[-105.5489898,26.5465519],[-105.4715561,26.5086862],[-105.3686237,26.5342447],[-105.352776,26.4788638],[-105.2646342,26.4620195],[-105.1016367,26.5213725],[-105.0566318,26.4193094],[-104.8989216,26.5100147],[-104.8091737,26.5084884],[-104.5744514,26.3404682],[-104.5010524,26.4145502],[-104.4347827,26.6045144],[-104.2865098,26.7253745],[-104.3152949,26.7990228],[-104.273037,26.8423],[-104.2278633,26.7770949],[-103.6990941,26.7252564],[-103.8517007,26.8961338],[-103.7408344,27.0225217],[-103.8321226,27.2982935],[-103.876876,27.3115921],[-103.8546009,27.5494327],[-103.8811453,27.7391857],[-103.9356496,27.7975527],[-103.9008439,27.8268573],[-103.9600019,27.835309],[-103.9549735,27.950821],[-103.8928858,27.914023],[-103.8777159,27.9574903],[-103.9266919,27.9713568],[-103.5963737,28.6394745],[-103.5572953,28.6112807],[-103.5145121,28.6649978],[-103.30673,29.02337],[-103.43258,29.04345],[-103.55364,29.158],[-103.71849,29.18081],[-103.7839296,29.2654528],[-104.03771,29.3198],[-104.1673,29.39463],[-104.21378,29.48472],[-104.50828,29.63249],[-104.67997,29.92078],[-104.70629,30.23491],[-104.85948,30.39031],[-104.92263,30.60366],[-105.2150083,30.805926],[-105.39587,30.84924],[-105.60442,31.0837],[-105.77304,31.1668],[-105.95396,31.36489],[-106.20668,31.46626],[-106.38438,31.73408],[-106.5281875,31.7838826],[-108.2085021,31.7836928],[-108.2084835,31.3333734],[-108.7559162,31.332419],[-108.8172315,31.2390057],[-108.9062214,31.2063633],[-108.8050247,31.1929555],[-108.8456401,31.1355762],[-108.6838075,31.0059734],[-108.8032555,31.0048293],[-108.8023926,30.904113],[-108.9392428,30.9075652],[-108.9483025,30.7369113],[-108.8669253,30.6893866],[-108.8764653,30.6245743],[-108.6777922,30.5570728],[-108.6647719,30.4681516],[-108.6038339,30.4650845],[-108.6486522,30.4168647],[-108.6220565,30.3403181],[-108.542199,30.2835122],[-108.6202177,30.2982297],[-108.6358799,29.8297667],[-108.5412199,29.7961558],[-108.534622,29.752337],[-108.659375,29.7161686],[-108.61821,29.6605867],[-108.655006,29.6494498],[-108.6619963,29.5445166],[-108.6252594,29.501171],[-108.717789,29.4665339],[-108.6697239,29.308136],[-108.761902,29.254683],[-108.6982119,29.128502],[-108.7096506,28.8890396],[-108.583717,28.740751],[-108.479701,28.369551],[-108.7915854,28.2534946],[-108.921264,28.2508672],[-108.9921039,28.298515],[-108.993813,28.2558839],[-109.0749842,28.2724889]]]}},{"n":"Sinaloa","lvl":"red","g":{"type":"MultiPolygon","coordinates":[[[[-109.4446313,25.9478672],[-109.3961135,25.6403977],[-109.2297435,25.6275008],[-109.0209442,25.4384691],[-108.4563212,25.2608172],[-108.2255566,25.0160843],[-108.0039713,24.6585135],[-107.8224528,24.5279547],[-107.9827899,24.6460957],[-107.9712939,24.6547888],[-107.9979122,24.6733139],[-107.9956269,24.7013839],[-107.9259438,24.6267357],[-107.8444794,24.6268364],[-107.8598401,24.6079739],[-107.8120297,24.5961827],[-107.8255368,24.5894437],[-107.7907782,24.5652147],[-107.8059278,24.5931907],[-107.7640153,24.5887285],[-107.7348465,24.5083148],[-107.6349865,24.4933626],[-107.6433678,24.4662761],[-107.595389,24.4700426],[-107.6020353,24.5229373],[-107.5187721,24.5351552],[-107.4835718,24.3577115],[-107.4889496,24.3483478],[-107.4921039,24.353428],[-107.5203985,24.3629208],[-107.5293356,24.3723421],[-107.5420185,24.3765641],[-107.5544411,24.3865264],[-107.5582445,24.3870394],[-107.4817693,24.3278391],[-107.4794626,24.3414223],[-107.4592012,24.3263336],[-107.4754232,24.2987713],[-107.8216374,24.5145038],[-107.4216557,24.2503884],[-107.2819555,24.2416575],[-107.2266564,24.163031],[-107.3329282,24.2280758],[-107.1804634,24.1176065],[-107.218363,24.1550761],[-107.1788085,24.1443158],[-107.2035277,24.1557014],[-107.2132367,24.1881694],[-107.1333289,24.1560734],[-107.1519488,24.1097222],[-107.1317089,24.1175073],[-107.0440047,24.0316355],[-107.1171042,24.0706132],[-107.127825,24.0811507],[-107.1299279,24.0946182],[-107.1648717,24.0998714],[-107.1249497,24.0743282],[-107.1176943,24.0649706],[-107.0636854,24.0286064],[-107.0314506,24.0010067],[-106.9880115,23.9441423],[-107.0112783,23.9545357],[-107.1171337,24.0398063],[-107.1760136,24.0914571],[-107.1727628,24.0986949],[-107.1911052,24.0918279],[-106.891054,23.8391972],[-106.8104607,23.6523619],[-106.484524,23.3327939],[-106.4293713,23.1763943],[-106.3951669,23.1829634],[-106.3426871,23.1413355],[-105.8650259,22.7024071],[-105.7141162,22.474946],[-105.6726493,22.4740949],[-105.7000721,22.5638982],[-105.6421584,22.5938886],[-105.5973452,22.5363046],[-105.4417247,22.5242684],[-105.5247722,22.7747699],[-105.4745886,22.851416],[-105.5012642,22.9584321],[-105.39222,23.0851574],[-105.6239695,23.122388],[-105.6432084,23.276479],[-105.7306896,23.3748972],[-105.7002887,23.4201705],[-105.7693022,23.5564653],[-105.8116438,23.6110285],[-105.8926553,23.5526452],[-105.9060933,23.7393988],[-105.9612655,23.8407421],[-105.9536619,23.9085845],[-105.8575879,23.8992961],[-105.945415,23.9480256],[-105.9121358,23.9975338],[-105.9987197,24.0433831],[-106.0438835,24.2208503],[-106.1517596,24.3387858],[-106.2688694,24.3747552],[-106.3675446,24.3019408],[-106.5170935,24.2869842],[-106.6015883,24.4145658],[-106.5600158,24.4727106],[-106.630067,24.5065031],[-106.7059483,24.6652616],[-107.0210528,24.9099082],[-107.0635712,25.0252553],[-107.1298916,25.0531388],[-107.1210571,25.2431112],[-107.2078165,25.3315642],[-107.1715508,25.3263578],[-107.2101322,25.4171005],[-107.1392949,25.4895648],[-107.1738794,25.5565525],[-106.9732904,25.6295704],[-106.9653226,25.6978785],[-107.0431266,25.6976987],[-107.0579047,25.7573679],[-107.2961282,25.9247934],[-107.2763462,26.0019765],[-107.3465278,26.1095231],[-107.4310426,26.1428599],[-107.5200199,26.1042271],[-107.5820272,26.1706401],[-107.7806742,26.1368651],[-107.8539671,26.1964841],[-108.0127278,26.4389103],[-107.9610533,26.5270646],[-108.0816525,26.6419294],[-108.0116847,26.6896679],[-108.0056204,26.7609866],[-108.1421167,26.9072035],[-108.2302578,26.9056289],[-108.1942931,27.0320969],[-108.4869774,27.0365806],[-108.5025527,26.9873805],[-108.4242708,26.9762298],[-108.4669776,26.9707018],[-108.6788307,26.587015],[-108.8731521,26.5510714],[-108.9146699,26.47954],[-108.837762,26.4725233],[-108.8813924,26.4062524],[-109.0062061,26.4025219],[-109.1252338,26.297043],[-109.202603,26.3449656],[-109.2480469,26.316067],[-109.4446313,25.9478672]],[[-107.0403582,24.0335401],[-107.041254,24.0382777],[-107.0404601,24.0382483],[-107.0403582,24.0335401]]],[[[-107.9906622,24.6957304],[-107.9900774,24.6939685],[-107.9894739,24.6937687],[-107.9906622,24.6957304]]],[[[-107.9853702,24.6697066],[-107.9851824,24.6675129],[-107.9835838,24.6695554],[-107.9853702,24.6697066]]],[[[-107.8943266,24.6221475],[-107.8923565,24.6190593],[-107.8902644,24.6195616],[-107.8943266,24.6221475]]],[[[-107.8803885,24.606935],[-107.8871101,24.6108831],[-107.8838244,24.6083738],[-107.8832477,24.6065522],[-107.8803885,24.606935]]],[[[-107.8202958,24.5856264],[-107.8197732,24.5841608],[-107.8193236,24.5841812],[-107.8202958,24.5856264]]],[[[-107.793434,24.5619221],[-107.7955201,24.5634555],[-107.7939785,24.5622148],[-107.793434,24.5619221]]],[[[-107.7763081,24.5545497],[-107.7698708,24.5465815],[-107.769042,24.5463839],[-107.7763081,24.5545497]]],[[[-107.7677786,24.5455983],[-107.7682078,24.5450737],[-107.7672315,24.545469],[-107.7677786,24.5455983]]],[[[-107.7676794,24.5442735],[-107.7676794,24.5438563],[-107.7675104,24.544254],[-107.7676794,24.5442735]]],[[[-107.7662659,24.5423509],[-107.7664536,24.5420996],[-107.7657455,24.5422069],[-107.7662659,24.5423509]]],[[[-107.7603677,24.5363193],[-107.7631438,24.537371],[-107.7612394,24.5360875],[-107.7603677,24.5363193]]],[[[-107.7540189,24.5246702],[-107.7560252,24.5242944],[-107.7543837,24.5222641],[-107.7540189,24.5246702]]],[[[-107.7511449,24.5274922],[-107.7510202,24.5242993],[-107.7500278,24.5232842],[-107.7511449,24.5274922]]],[[[-107.7278727,24.505923],[-107.7258718,24.5033457],[-107.7259357,24.5058301],[-107.7278727,24.505923]]],[[[-107.7236509,24.5008904],[-107.7250564,24.4962676],[-107.7217224,24.5000093],[-107.7236509,24.5008904]]],[[[-107.724748,24.5010466],[-107.7247158,24.5004877],[-107.7241579,24.5008294],[-107.724748,24.5010466]]],[[[-107.7194506,24.4993381],[-107.7093226,24.4949154],[-107.7086294,24.4984255],[-107.7194506,24.4993381]]],[[[-107.6245272,24.4382125],[-107.6248598,24.4357022],[-107.6211423,24.4377339],[-107.6245272,24.4382125]]],[[[-107.5833821,24.5031114],[-107.5846964,24.4999629],[-107.5818157,24.5012126],[-107.5829184,24.5016892],[-107.5833821,24.5031114]]],[[[-107.5836074,24.4946616],[-107.5772935,24.4909076],[-107.5779802,24.4954475],[-107.5836074,24.4946616]]],[[[-107.5845248,24.5040535],[-107.5820625,24.5020473],[-107.5796861,24.504937],[-107.5774223,24.5054349],[-107.5845248,24.5040535]]],[[[-107.570352,24.5049712],[-107.5772023,24.5011393],[-107.5702769,24.503004],[-107.5676,24.5012321],[-107.570352,24.5049712]]],[[[-107.5745779,24.5138912],[-107.5766364,24.5121561],[-107.5725477,24.510839],[-107.5745779,24.5138912]]],[[[-107.5715992,24.4535223],[-107.5730315,24.4526678],[-107.5702581,24.4525677],[-107.5715992,24.4535223]]],[[[-107.5683296,24.5011198],[-107.5687534,24.498933],[-107.5644404,24.4978834],[-107.5683296,24.5011198]]],[[[-107.5686327,24.4545576],[-107.5694078,24.4542548],[-107.5686729,24.4540986],[-107.5686327,24.4545576]]],[[[-107.5676751,24.4591575],[-107.56587,24.4565572],[-107.5657788,24.4578708],[-107.5676751,24.4591575]]],[[[-107.5668463,24.4558663],[-107.5669858,24.4549409],[-107.5663608,24.4556197],[-107.5668463,24.4558663]]],[[[-107.5650305,24.4792836],[-107.5640002,24.4775442],[-107.5636919,24.4781071],[-107.5650305,24.4792836]]],[[[-107.5655589,24.465886],[-107.5658217,24.465366],[-107.5657117,24.4653367],[-107.5655589,24.465886]]],[[[-107.5652933,24.4645335],[-107.5656822,24.4640062],[-107.5656474,24.4634471],[-107.5652933,24.4645335]]],[[[-107.5637859,24.4638792],[-107.5636196,24.4601951],[-107.5633299,24.4601585],[-107.5637859,24.4638792]]],[[[-107.5628042,24.4983911],[-107.5617582,24.4961651],[-107.5594086,24.4971512],[-107.5628042,24.4983911]]],[[[-107.5588346,24.4977419],[-107.5572762,24.4964873],[-107.5571635,24.4977126],[-107.5588346,24.4977419]]],[[[-107.5576758,24.4855741],[-107.5569624,24.4829305],[-107.5562355,24.4935242],[-107.5576758,24.4855741]]],[[[-107.5590627,24.3582704],[-107.5596137,24.3577467],[-107.5590523,24.3577562],[-107.5590627,24.3582704]]],[[[-107.5564393,24.4715182],[-107.5546315,24.4777017],[-107.5556669,24.4757219],[-107.5564393,24.4715182]]],[[[-107.5570375,24.3582002],[-107.5572601,24.3577115],[-107.5569838,24.3578947],[-107.5570375,24.3582002]]],[[[-107.5483015,24.3612276],[-107.55023,24.3574622],[-107.5476444,24.3589723],[-107.5483015,24.3612276]]],[[[-107.5567505,24.3579974],[-107.5565976,24.3570908],[-107.5561336,24.3580707],[-107.5567505,24.3579974]]],[[[-107.5556105,24.4980299],[-107.5548316,24.4967349],[-107.5543606,24.4970975],[-107.5556105,24.4980299]]],[[[-107.55391,24.4971463],[-107.554028,24.4950521],[-107.5528961,24.4969901],[-107.55391,24.4971463]]],[[[-107.5432053,24.352216],[-107.54482,24.3512386],[-107.5440234,24.3507914],[-107.5432053,24.352216]]],[[[-107.5407216,24.3476856],[-107.5410032,24.3469451],[-107.5400001,24.3469989],[-107.5407216,24.3476856]]],[[[-107.5376129,24.5220396],[-107.537034,24.5213855],[-107.5370389,24.5217956],[-107.5376129,24.5220396]]],[[[-107.536642,24.5274374],[-107.5346088,24.5233427],[-107.5297004,24.5248459],[-107.536642,24.5274374]]],[[[-107.522563,24.372088],[-107.5233816,24.3714736],[-107.5220186,24.371333],[-107.522563,24.372088]]],[[[-107.5158823,24.3898626],[-107.5124806,24.3891403],[-107.5131351,24.3904887],[-107.5158823,24.3898626]]],[[[-107.5126657,24.3950225],[-107.5137922,24.391649],[-107.5127488,24.3918274],[-107.5126657,24.3950225]]],[[[-107.5115678,24.3420869],[-107.5139947,24.3370301],[-107.5112261,24.3390057],[-107.5115678,24.3420869]]],[[[-107.5137037,24.3648486],[-107.5132263,24.3638224],[-107.5127086,24.364184],[-107.5137037,24.3648486]]],[[[-107.513701,24.3823465],[-107.5137386,24.3814279],[-107.5135991,24.3815476],[-107.513701,24.3823465]]],[[[-107.5104421,24.365826],[-107.511971,24.3637125],[-107.5081918,24.3638957],[-107.5104421,24.365826]]],[[[-107.5052708,24.4071599],[-107.5057463,24.4039973],[-107.5015613,24.4084373],[-107.5052708,24.4071599]]],[[[-107.5039311,24.3249777],[-107.5061357,24.3228834],[-107.5033446,24.3237012],[-107.5039311,24.3249777]]],[[[-107.5060715,24.4111765],[-107.5061801,24.4108187],[-107.50581,24.4110214],[-107.5060715,24.4111765]]],[[[-107.5049114,24.4030369],[-107.5054693,24.4025728],[-107.5052065,24.4024897],[-107.5049114,24.4030369]]],[[[-107.4991803,24.3260851],[-107.4982425,24.3212128],[-107.4964542,24.3230431],[-107.4977719,24.3258511],[-107.4991803,24.3260851]]],[[[-107.5023886,24.332206],[-107.5012357,24.3306817],[-107.4984544,24.3320138],[-107.5023886,24.332206]]],[[[-107.4967604,24.3315271],[-107.498935,24.3278898],[-107.4937334,24.327461],[-107.4967604,24.3315271]]],[[[-107.4927997,24.315643],[-107.5001414,24.3178373],[-107.4950371,24.3152198],[-107.4927997,24.315643]]],[[[-107.4968545,24.3220074],[-107.4936667,24.316915],[-107.4926045,24.3200193],[-107.4968545,24.3220074]]],[[[-107.4926549,24.322591],[-107.4929178,24.3216859],[-107.4925,24.3218218],[-107.4926549,24.322591]]],[[[-107.4909812,24.3231331],[-107.4901341,24.3228896],[-107.4898636,24.3234086],[-107.4909812,24.3231331]]],[[[-107.4191666,24.2456537],[-107.2388578,24.1310298],[-107.2170997,24.1204841],[-107.2130656,24.1198281],[-107.2106838,24.1206139],[-107.4191666,24.2456537]]],[[[-107.3944634,24.2389232],[-107.3976874,24.240239],[-107.3939323,24.2381063],[-107.3944634,24.2389232]]],[[[-107.3874092,24.2371671],[-107.3923657,24.2367368],[-107.3848075,24.2336354],[-107.3874092,24.2371671]]],[[[-107.374636,24.2413881],[-107.3740625,24.2410485],[-107.373848,24.2411512],[-107.374636,24.2413881]]],[[[-107.3729038,24.2412173],[-107.3731184,24.2410363],[-107.3727536,24.2410363],[-107.3729038,24.2412173]]],[[[-107.3706025,24.2363502],[-107.3711282,24.2359883],[-107.3708439,24.2356165],[-107.3706025,24.2363502]]],[[[-107.3695881,24.2371832],[-107.3700392,24.2367122],[-107.3695014,24.2368374],[-107.3695881,24.2371832]]],[[[-107.3673555,24.2414142],[-107.3672785,24.240945],[-107.367166,24.2409123],[-107.3673555,24.2414142]]],[[[-107.3661232,24.2406743],[-107.3662644,24.2403599],[-107.3656432,24.2406095],[-107.3661232,24.2406743]]],[[[-107.3618478,24.2345403],[-107.3615205,24.2342028],[-107.3608848,24.2341955],[-107.3618478,24.2345403]]],[[[-107.3604886,24.2356704],[-107.3603806,24.2355089],[-107.3603325,24.2356844],[-107.3604886,24.2356704]]],[[[-107.3594208,24.2362893],[-107.3594016,24.2356972],[-107.3592031,24.236232],[-107.3594208,24.2362893]]],[[[-107.3590903,24.2351984],[-107.3591736,24.2349096],[-107.3589348,24.2349069],[-107.3590903,24.2351984]]],[[[-107.35798,24.2332758],[-107.3576447,24.2328967],[-107.3569202,24.2328109],[-107.35798,24.2332758]]],[[[-107.3573278,24.2338257],[-107.3573685,24.2333541],[-107.3571512,24.2334079],[-107.3573278,24.2338257]]],[[[-107.3561882,24.2338971],[-107.3562795,24.2336721],[-107.3560692,24.2338281],[-107.3561882,24.2338971]]],[[[-107.3557484,24.2330826],[-107.3558691,24.2329383],[-107.3555347,24.2329858],[-107.3557484,24.2330826]]],[[[-107.3413074,24.2239984],[-107.3432037,24.2234113],[-107.3411941,24.2231258],[-107.3413074,24.2239984]]],[[[-107.3407227,24.2230444],[-107.3405296,24.2228438],[-107.3403204,24.2232694],[-107.3407227,24.2230444]]],[[[-107.3404062,24.2246539],[-107.3397222,24.2234211],[-107.3395613,24.2238883],[-107.3404062,24.2246539]]],[[[-107.3139489,24.2013118],[-107.3178367,24.2029497],[-107.315011,24.2012249],[-107.3139489,24.2013118]]],[[[-107.2999236,24.2153024],[-107.299768,24.2139814],[-107.2991806,24.2140304],[-107.2999236,24.2153024]]],[[[-107.2974345,24.23467],[-107.2982875,24.2333296],[-107.2973675,24.2331853],[-107.2974345,24.23467]]],[[[-107.2672972,24.1690889],[-107.2673388,24.168438],[-107.2669271,24.1684037],[-107.2672972,24.1690889]]],[[[-107.2107536,24.1305451],[-107.2123146,24.130736],[-107.2093749,24.1251402],[-107.205888,24.1220313],[-107.2107643,24.1288218],[-107.2107536,24.1305451]]],[[[-107.2099865,24.1843713],[-107.2099221,24.1836519],[-107.2096807,24.1840336],[-107.2099865,24.1843713]]],[[[-107.2093588,24.1292086],[-107.2093266,24.1279993],[-107.208876,24.1277399],[-107.2093588,24.1292086]]],[[[-107.2076744,24.1220019],[-107.2078487,24.1218917],[-107.2067518,24.1217054],[-107.2076744,24.1220019]]],[[[-107.2040155,24.1256043],[-107.2044075,24.1253507],[-107.2039971,24.1251818],[-107.2040155,24.1256043]]],[[[-107.2028786,24.1246016],[-107.2028893,24.1233483],[-107.2020149,24.1234021],[-107.2028786,24.1246016]]],[[[-107.2016929,24.1616986],[-107.201457,24.1608481],[-107.2009948,24.1613833],[-107.2016929,24.1616986]]],[[[-107.2007416,24.1611121],[-107.2007382,24.1608187],[-107.200642,24.1610462],[-107.2007416,24.1611121]]],[[[-107.1863455,24.1177081],[-107.1979272,24.1185551],[-107.1885502,24.1171646],[-107.1765339,24.1098593],[-107.1863455,24.1177081]]],[[[-107.1991316,24.1604296],[-107.199204,24.1600919],[-107.198917,24.1600136],[-107.1991316,24.1604296]]],[[[-107.1854355,24.1337456],[-107.184883,24.1328797],[-107.1847878,24.132846],[-107.1854355,24.1337456]]],[[[-107.1756434,24.1187167],[-107.1741414,24.1138547],[-107.1714324,24.1148585],[-107.1756434,24.1187167]]],[[[-107.1702147,24.1107309],[-107.1746939,24.1096732],[-107.1733207,24.1092472],[-107.1711481,24.1092325],[-107.1702147,24.1107309]]],[[[-107.1708503,24.1147801],[-107.1703407,24.1131619],[-107.1697667,24.1142024],[-107.1708503,24.1147801]]],[[[-107.1644855,24.0908744],[-107.1637559,24.0859673],[-107.1627919,24.0914593],[-107.1644855,24.0908744]]],[[[-107.136797,24.0665845],[-107.1367729,24.0655131],[-107.1348819,24.0657029],[-107.136797,24.0665845]]],[[[-107.1301829,24.0634581],[-107.1320374,24.0615382],[-107.1299467,24.0613875],[-107.1301829,24.0634581]]],[[[-107.1265014,24.0887612],[-107.1265134,24.0872712],[-107.12649,24.0845636],[-107.1265014,24.0887612]]],[[[-107.1250185,24.0563759],[-107.1247311,24.0560409],[-107.1245272,24.0564959],[-107.1250185,24.0563759]]],[[[-107.1218786,24.0555143],[-107.1216541,24.0551817],[-107.1214092,24.055177],[-107.1218786,24.0555143]]],[[[-107.1121609,24.0536259],[-107.1131533,24.05222],[-107.1114689,24.0523572],[-107.1121609,24.0536259]]],[[[-107.112916,24.0513015],[-107.1134256,24.0494131],[-107.1126075,24.0514889],[-107.112916,24.0513015]]],[[[-107.1116124,24.0513199],[-107.1110049,24.0496507],[-107.1113187,24.0514179],[-107.1116124,24.0513199]]],[[[-107.1096893,24.0457255],[-107.110109,24.0440978],[-107.1077608,24.0459276],[-107.1096893,24.0457255]]],[[[-107.1059555,24.0451066],[-107.1063459,24.0428388],[-107.104813,24.0444212],[-107.1059555,24.0451066]]],[[[-107.102454,24.0357154],[-107.1048921,24.0353529],[-107.1031487,24.0351765],[-107.102454,24.0357154]]],[[[-107.1059288,24.0555376],[-107.1058993,24.054962],[-107.1054266,24.0545408],[-107.1059288,24.0555376]]],[[[-107.1050993,24.0534625],[-107.1051107,24.0530889],[-107.1049887,24.0535476],[-107.1050993,24.0534625]]],[[[-107.1036892,24.0397952],[-107.1037307,24.0392527],[-107.103488,24.0398638],[-107.1036892,24.0397952]]],[[[-107.1013919,24.0392625],[-107.1014966,24.0380216],[-107.1007025,24.0391939],[-107.1013919,24.0392625]]],[[[-107.1005148,24.0497707],[-107.1001393,24.0490561],[-107.1001969,24.0499458],[-107.1005148,24.0497707]]],[[[-107.0985112,24.0456796],[-107.0984991,24.0453856],[-107.0983348,24.0457243],[-107.0985112,24.0456796]]],[[[-107.0976676,24.0449208],[-107.0976783,24.0444781],[-107.0974758,24.0445485],[-107.0976676,24.0449208]]],[[[-107.0967825,24.0406587],[-107.0960555,24.0394231],[-107.0954709,24.0392906],[-107.0967825,24.0406587]]],[[[-107.0962116,24.0456498],[-107.0960373,24.0443877],[-107.0959914,24.0456974],[-107.0962116,24.0456498]]],[[[-107.0959724,24.0439851],[-107.0958564,24.0434322],[-107.0958155,24.0440023],[-107.0959724,24.0439851]]],[[[-107.0953569,24.0472221],[-107.0950833,24.0452099],[-107.0941606,24.0453446],[-107.0953569,24.0472221]]],[[[-107.0943866,24.0347509],[-107.094103,24.0346609],[-107.0943745,24.03522],[-107.0943866,24.0347509]]],[[[-107.0922174,24.0449172],[-107.0923924,24.0447163],[-107.092322,24.0446637],[-107.0922174,24.0449172]]],[[[-107.091815,24.0356309],[-107.0919853,24.0346008],[-107.0917024,24.0346033],[-107.091815,24.0356309]]],[[[-107.0904263,24.0256599],[-107.0899211,24.0244362],[-107.0894493,24.0241894],[-107.0904263,24.0256599]]],[[[-107.0890591,24.0426992],[-107.0884234,24.0408963],[-107.0878655,24.0413862],[-107.0890591,24.0426992]]],[[[-107.0882893,24.0241832],[-107.0881256,24.0235108],[-107.08727,24.0234642],[-107.0882893,24.0241832]]],[[[-107.0874162,24.0285366],[-107.0874591,24.0267972],[-107.0869361,24.0293695],[-107.0874162,24.0285366]]],[[[-107.0869945,24.0329408],[-107.0869039,24.0321181],[-107.0864734,24.0329473],[-107.0869945,24.0329408]]],[[[-107.08651,24.0404408],[-107.0865908,24.0402576],[-107.0863748,24.0401676],[-107.08651,24.0404408]]],[[[-107.0845597,24.0172193],[-107.0852128,24.0157738],[-107.0845771,24.0157052],[-107.0845597,24.0172193]]],[[[-107.085084,24.0393825],[-107.0843706,24.038775],[-107.0845181,24.0397671],[-107.085084,24.0393825]]],[[[-107.08462,24.0246554],[-107.0847266,24.0244025],[-107.0846321,24.0243878],[-107.08462,24.0246554]]],[[[-107.0831387,24.0239015],[-107.0830348,24.0236087],[-107.0830301,24.0240105],[-107.0831387,24.0239015]]],[[[-107.079957,24.0339976],[-107.079792,24.0336387],[-107.0798691,24.0340723],[-107.079957,24.0339976]]],[[[-107.0774216,24.0323753],[-107.077724,24.0308357],[-107.0776194,24.0307352],[-107.0774216,24.0323753]]],[[[-107.0776496,24.0331549],[-107.0777388,24.032703],[-107.0775028,24.032608],[-107.0776496,24.0331549]]],[[[-107.0732179,24.0321683],[-107.0739341,24.0318743],[-107.0723509,24.0310733],[-107.0732179,24.0321683]]],[[[-107.0649031,24.0284226],[-107.0663501,24.0282842],[-107.0646027,24.0279645],[-107.0649031,24.0284226]]],[[[-107.0629048,24.0117655],[-107.0621538,24.0106115],[-107.0622772,24.0117263],[-107.0629048,24.0117655]]],[[[-107.0610595,24.0015948],[-107.0615047,24.0012346],[-107.0607993,24.0012346],[-107.0610595,24.0015948]]],[[[-107.0602499,24.0061126],[-107.0592704,24.0038515],[-107.0589285,24.0037412],[-107.0602499,24.0061126]]],[[[-107.0604131,24.0010453],[-107.0597412,23.9998048],[-107.0600094,24.0010863],[-107.0604131,24.0010453]]],[[[-107.0533186,24.0000462],[-107.0552686,23.998598],[-107.0516476,23.9980957],[-107.0533186,24.0000462]]],[[[-107.0560142,24.0110164],[-107.0557038,24.0108222],[-107.0557829,24.0111414],[-107.0560142,24.0110164]]],[[[-107.0551211,24.0066202],[-107.0544438,24.0044555],[-107.0546048,24.0067395],[-107.0551211,24.0066202]]],[[[-107.0490325,23.9970237],[-107.0492095,23.9954763],[-107.0456851,23.9929143],[-107.0490325,23.9970237]]],[[[-107.0455711,24.0044236],[-107.0456006,24.0035476],[-107.0453592,24.0035746],[-107.0455711,24.0044236]]],[[[-107.0426971,24.002298],[-107.0424463,24.0021351],[-107.0426032,24.0031176],[-107.0426971,24.002298]]],[[[-106.4787896,23.2577001],[-106.4736183,23.251421],[-106.4735324,23.2577592],[-106.4787896,23.2577001]]],[[[-106.4661073,23.2387896],[-106.4662876,23.23151],[-106.4636783,23.2280869],[-106.4661073,23.2387896]]],[[[-106.4651383,23.2263541],[-106.4631728,23.224469],[-106.4636105,23.2277265],[-106.4651383,23.2263541]]],[[[-106.4401215,23.1852349],[-106.4398296,23.183821],[-106.4393,23.1850362],[-106.4401215,23.1852349]]],[[[-106.4361167,23.1875972],[-106.4365008,23.186818],[-106.4360709,23.1869229],[-106.4361167,23.1875972]]],[[[-106.4129585,23.1733196],[-106.4131107,23.1730437],[-106.4128743,23.1730584],[-106.4129585,23.1733196]]],[[[-106.4030303,23.1801192],[-106.4042206,23.1796399],[-106.4039322,23.1784722],[-106.4030303,23.1801192]]]]}},{"n":"Zacatecas","lvl":"red","g":{"type":"Polygon","coordinates":[[[-104.353533,22.4013152],[-104.2920791,22.3439573],[-104.2207499,22.4210997],[-104.1673858,22.3873562],[-104.214828,22.4841615],[-104.08188,22.5335564],[-104.0515747,22.4667477],[-104.0973454,22.3578244],[-104.0151338,22.3648129],[-103.9293927,22.4760986],[-104.0055708,22.5366003],[-103.9723321,22.5451136],[-104.0155236,22.6688334],[-104.0433061,22.6719074],[-104.0727217,22.7001307],[-103.9093425,22.7501238],[-103.7519862,22.7116453],[-103.7609618,22.625614],[-103.8607206,22.5676189],[-103.8669294,22.4093806],[-103.9261242,22.3320728],[-103.862936,22.1668824],[-103.8454342,22.3427575],[-103.726555,22.5741466],[-103.6027587,22.5567915],[-103.5591937,22.4284276],[-103.6421115,22.3408733],[-103.5949032,22.2730784],[-103.6838473,22.1092052],[-103.4394997,22.1176392],[-103.4089596,22.2153649],[-103.2951044,22.2532853],[-103.3068827,22.3062831],[-103.3556881,22.2797993],[-103.366683,22.351039],[-103.2852307,22.4142442],[-103.1685777,22.3850128],[-103.220622,22.2804662],[-103.1009877,22.2939749],[-103.0554552,22.2472563],[-103.1060588,22.191356],[-103.0770247,22.1255044],[-103.1527838,22.087622],[-103.1114865,22.0142613],[-103.2055679,21.9651944],[-103.278561,21.9896501],[-103.47053,21.8135403],[-103.5726272,21.8034898],[-103.5084736,21.739735],[-103.5452222,21.5876389],[-103.6897889,21.5523532],[-103.7014647,21.4662659],[-103.5953116,21.3909062],[-103.5386465,21.4447898],[-103.5039202,21.376837],[-103.7050846,21.3254977],[-103.7162114,21.2678685],[-103.6339934,21.2822918],[-103.6673241,21.2160485],[-103.590441,21.1275221],[-103.4285824,21.1467238],[-103.3388622,21.0418694],[-103.2096016,21.0942206],[-103.0884246,21.0657418],[-103.0655,21.2558065],[-102.9106522,21.2052347],[-102.729128,21.3873555],[-102.6950553,21.3407445],[-102.6425949,21.3672006],[-102.6307343,21.5339833],[-102.7647413,21.5960646],[-102.805279,21.6712824],[-102.7452999,21.7200523],[-102.8741765,21.852771],[-102.7558057,22.073662],[-102.690989,22.1061454],[-102.6392989,22.2260392],[-102.6687428,22.291871],[-102.4702016,22.3092102],[-102.4686419,22.3518814],[-102.3213647,22.3885326],[-102.3118048,22.4569158],[-102.2532007,22.3744945],[-102.1498474,22.347175],[-102.1532304,22.2904102],[-102.0372696,22.2989756],[-101.999716,22.233656],[-102.0259151,22.129771],[-101.7466298,22.0120646],[-101.6506956,21.9076754],[-101.5698062,21.9170807],[-101.5659635,21.8420333],[-101.5105417,21.7990585],[-101.4291728,21.9343611],[-101.3265102,21.999728],[-101.351675,22.0437891],[-101.3656922,22.0185484],[-101.3827553,22.0207379],[-101.3242531,22.2098934],[-101.4162589,22.2673455],[-101.3914349,22.2999018],[-101.4351254,22.3415339],[-101.3819105,22.357485],[-101.3747857,22.4564583],[-101.3137263,22.4534901],[-101.2857263,22.5078556],[-101.305709,22.6099303],[-101.3800182,22.6758349],[-101.3492339,22.7117792],[-101.4909645,22.7428773],[-101.6599064,22.5053204],[-101.7992766,22.470558],[-101.8198915,22.5512947],[-101.8729577,22.5630733],[-101.8532842,22.6560251],[-101.939756,22.6457254],[-102.1921317,22.864902],[-102.2600509,23.0459155],[-102.2141546,23.1313199],[-102.2893689,23.2316909],[-102.2858254,23.2733201],[-102.2446721,23.2767687],[-102.2315968,23.3151163],[-102.2695336,23.2799128],[-102.2960384,23.3205012],[-102.2381503,23.4469014],[-102.1225324,23.35386],[-101.7751224,23.4476293],[-101.1925049,23.9185591],[-101.2167463,24.1597319],[-101.0654015,24.2070211],[-101.0126886,24.3908191],[-100.987332,24.4325214],[-101.0066746,24.3358347],[-100.9452859,24.2811958],[-100.7423242,24.4604354],[-100.7999341,24.5561861],[-100.9022338,24.5839177],[-100.9587926,24.5426841],[-101.0804951,24.5911853],[-101.2150391,24.7751678],[-101.3421416,24.8133525],[-101.4616394,24.7367568],[-101.6222697,24.7589831],[-101.6012606,24.8355632],[-101.773463,24.8755351],[-101.84881,25.0176236],[-102.295513,25.1252355],[-102.4633252,25.1159162],[-102.4467634,24.9995154],[-102.669694,25.0666365],[-102.6288848,25.0083216],[-102.6730615,24.942752],[-102.5662357,24.9022207],[-102.4797181,24.4285583],[-102.6999044,24.3739718],[-102.8317356,24.3846919],[-102.8918796,24.461156],[-102.9001483,24.4284997],[-103.0431502,24.4665008],[-103.0985272,24.4016266],[-103.2535317,24.4472538],[-103.4193324,24.430488],[-103.44834,24.3326004],[-103.5683499,24.2863712],[-103.5595363,24.1937888],[-103.6220066,24.1174646],[-103.6603615,24.1493262],[-103.8723865,24.0070217],[-103.8183598,23.9649086],[-103.8509827,23.6795704],[-103.7850588,23.6765164],[-103.7935417,23.630855],[-103.877429,23.6289699],[-104.065977,23.4634932],[-104.1721324,23.1284076],[-104.1665928,22.9452207],[-104.1126443,22.905118],[-104.0804752,22.7666168],[-104.2211409,22.7792498],[-104.2663444,22.7365393],[-104.2614074,22.5862028],[-104.3258241,22.5373966],[-104.2961258,22.472989],[-104.353533,22.4013152]]]}},{"n":"Tamaulipas","lvl":"red","g":{"type":"Polygon","coordinates":[[[-100.1449502,23.3395151],[-100.0780411,23.3059839],[-100.1155972,23.1259898],[-100.0113551,23.0653593],[-100.1108469,22.9757189],[-100.1103836,22.9167144],[-100.044239,22.9178924],[-100.0293842,22.8243935],[-100.0940599,22.7512651],[-99.8823969,22.7498623],[-99.8140289,22.6607657],[-99.6825354,22.6811247],[-99.5346919,22.6127646],[-99.4945363,22.6208686],[-99.5443273,22.7441401],[-99.4967885,22.7484979],[-99.4420528,22.6636157],[-99.3296176,22.6348877],[-99.2368387,22.412862],[-99.0603994,22.4152685],[-98.8899972,22.3550935],[-98.5050401,22.4294715],[-98.3187812,22.3907396],[-98.3168229,22.4685623],[-98.1949952,22.4695589],[-98.1874854,22.4238685],[-98.0727814,22.3471614],[-97.9900202,22.3508638],[-98.000324,22.2974324],[-97.8396832,22.2088862],[-97.7835892,22.262617],[-97.8601813,22.5532664],[-97.7661967,22.8946885],[-97.6862817,24.4564229],[-97.5357467,24.9931374],[-97.202493,25.6288937],[-97.1467003,25.8690997],[-97.1474408,25.956321],[-97.28352,25.9595],[-97.37492,25.90827],[-97.37311,25.83983],[-97.42578,25.84074],[-97.6626,26.03815],[-98.19492,26.05339],[-98.44458,26.22444],[-98.6701,26.23671],[-98.80554,26.36808],[-99.0845303,26.3979773],[-99.2680515,26.8421764],[-99.44583,27.0216],[-99.44166,27.25023],[-99.53807,27.31685],[-99.47872,27.47938],[-99.5281,27.49816],[-99.51181,27.56655],[-99.7281467,27.6791262],[-99.9264182,27.549157],[-99.9191536,27.4915151],[-99.7603788,27.4369587],[-99.7476704,27.277247],[-99.6500528,27.0658578],[-99.7341681,26.9206128],[-99.7701314,26.9284182],[-99.7666688,26.8898419],[-99.6613905,26.9008385],[-99.5808428,26.8301125],[-99.6591644,26.6703651],[-99.3968248,26.5965655],[-99.4309465,26.3513011],[-99.4012361,26.3047991],[-99.3641502,26.3292701],[-99.1978359,26.2586823],[-99.1597243,26.06124],[-99.0239714,26.1040566],[-98.9007519,25.9683227],[-98.8232265,26.0476486],[-98.585126,26.0179176],[-98.5817515,25.4893617],[-98.421576,25.4893555],[-98.4231316,25.4474929],[-98.9341699,25.0727631],[-99.0190558,25.0699253],[-99.0525399,25.1271253],[-99.1605919,25.0552773],[-99.1589429,24.9159881],[-99.2074333,24.8613921],[-99.1819712,24.776041],[-99.2949284,24.8041437],[-99.4777354,24.7126209],[-99.5462205,24.6130747],[-99.7329634,24.5539743],[-99.7198038,24.4837104],[-99.6363793,24.5066702],[-99.5899311,24.3961423],[-99.6570806,24.1179965],[-99.5418927,24.0336491],[-99.4568707,23.866063],[-99.493791,23.8786929],[-99.6021674,23.7628708],[-99.8606599,23.7744624],[-99.9611876,23.5568897],[-99.9212534,23.3791913],[-100.0802614,23.3957482],[-100.1449502,23.3395151]]]}},{"n":"Guanajuato","lvl":"red","g":{"type":"Polygon","coordinates":[[[-102.0972846,20.3864918],[-102.013987,20.3940944],[-102.0252349,20.3479816],[-102.0137988,20.3279303],[-101.9452232,20.3426628],[-101.9399366,20.2270515],[-101.888114,20.1883933],[-101.8342299,20.2247539],[-101.6980147,20.1897431],[-101.6243452,20.3146466],[-101.4642978,20.3287421],[-101.4559305,20.2671697],[-101.3526181,20.2349322],[-101.3631982,20.1957944],[-101.4198911,20.2015906],[-101.3887358,20.0303976],[-101.2030555,20.0072241],[-101.1603515,20.0402001],[-101.1963184,20.0571885],[-101.1752372,20.0971163],[-101.1331471,20.0599847],[-101.0429011,20.0919542],[-100.9676444,20.0112935],[-101.0046562,19.9662339],[-100.9705469,19.9292377],[-100.9475394,19.9625452],[-100.8357618,19.9345964],[-100.8243014,19.9783291],[-100.7487528,19.9127502],[-100.5767101,19.9930608],[-100.5930757,19.9582804],[-100.5318233,19.9763945],[-100.5360085,19.9230066],[-100.5199464,19.9188201],[-100.4658244,19.987398],[-100.3629311,19.9898611],[-100.3972567,20.0969528],[-100.3235584,20.251934],[-100.4099952,20.3760064],[-100.4761811,20.3896108],[-100.4961774,20.6161937],[-100.5965357,20.7172609],[-100.5489146,20.7363834],[-100.5775889,20.8166697],[-100.5020486,20.8529204],[-100.4722328,20.928446],[-100.4133993,20.8874318],[-100.3335908,20.8907284],[-100.2636233,20.9709988],[-100.0641719,20.9362886],[-99.986368,21.21831],[-99.8304261,21.1575071],[-99.7384834,21.2358177],[-99.6878548,21.2257802],[-99.6713026,21.3011938],[-99.7840031,21.3201496],[-99.7760805,21.4945369],[-99.9423331,21.4496198],[-99.9568223,21.5262271],[-100.062276,21.5233054],[-100.2721355,21.687347],[-100.4350442,21.6827185],[-100.4856852,21.595277],[-100.4610803,21.5453349],[-100.614955,21.5057892],[-100.857596,21.618945],[-100.8343215,21.6645588],[-100.9819744,21.7535274],[-101.161267,21.7575059],[-101.3194839,21.8353344],[-101.4738734,21.827391],[-101.5856941,21.7787771],[-101.5801887,21.6255313],[-101.6411663,21.5222667],[-101.5704156,21.4185357],[-101.677583,21.3951424],[-101.6431771,21.2993357],[-101.7597165,21.2676217],[-101.7811088,21.1605279],[-101.8750037,21.0928944],[-101.9389498,20.9306142],[-102.079867,20.8290651],[-102.0959084,20.7800505],[-101.9511437,20.6074268],[-102.0972846,20.3864918]]]}},{"n":"Michoacán","lvl":"red","g":{"type":"Polygon","coordinates":[[[-103.7390459,18.6925077],[-103.6857837,18.6287694],[-103.7118842,18.5970057],[-103.5830908,18.5059062],[-103.4922402,18.3295541],[-102.1878892,17.9150076],[-102.1330537,17.9507541],[-102.184246,18.0244909],[-102.1618826,18.1640666],[-101.8632493,18.2616551],[-101.8822598,18.5342277],[-101.7717942,18.6037214],[-101.6249996,18.6013577],[-101.5074441,18.4867973],[-101.2820771,18.544734],[-101.0120032,18.527543],[-100.9574433,18.4444301],[-100.7981776,18.4805411],[-100.6429996,18.3461577],[-100.5882298,18.4121452],[-100.7442252,18.518073],[-100.7917709,18.8341685],[-100.7480675,18.8681181],[-100.6960685,18.7941255],[-100.5437859,18.9347037],[-100.5298528,19.0093312],[-100.4108272,19.0635951],[-100.3123745,19.3623611],[-100.1898726,19.4397041],[-100.2739897,19.6722513],[-100.1481858,19.7282152],[-100.1314871,19.8520139],[-100.0630328,19.8558086],[-100.1301225,19.916193],[-100.1380788,20.0475644],[-100.2356036,20.1434586],[-100.181144,20.2088005],[-100.3458331,20.2980002],[-100.3235584,20.251934],[-100.3972567,20.0969528],[-100.3629311,19.9898611],[-100.4658244,19.987398],[-100.5199464,19.9188201],[-100.5282013,19.9742573],[-100.5907139,19.9568388],[-100.5567433,19.9872613],[-100.5956033,19.991662],[-100.7487528,19.9127502],[-100.8243014,19.9783291],[-100.8357618,19.9345964],[-100.9475394,19.9625452],[-100.9718401,19.9299767],[-101.0046562,19.9662339],[-100.9676444,20.0112935],[-101.0429011,20.0919542],[-101.1331471,20.0599847],[-101.1752372,20.0971163],[-101.1963184,20.0571885],[-101.1603515,20.0402001],[-101.2030555,20.0072241],[-101.4016803,20.0350091],[-101.4198911,20.2015906],[-101.3631982,20.1957944],[-101.3526181,20.2349322],[-101.4559305,20.2671697],[-101.4724624,20.3312145],[-101.6243452,20.3146466],[-101.6980147,20.1897431],[-101.8342299,20.2247539],[-101.888114,20.1883933],[-101.9399366,20.2270515],[-101.9452232,20.3426628],[-102.0157971,20.3293001],[-102.013987,20.3940944],[-102.1631795,20.3795196],[-102.5054424,20.3158577],[-102.8162873,20.1060478],[-102.9548251,20.1712644],[-102.9264482,20.1295751],[-103.0441523,20.1241193],[-103.0515041,19.9916111],[-102.7753429,19.9585574],[-102.7393963,19.8158258],[-102.8195268,19.7779412],[-102.8056625,19.6748377],[-102.715932,19.6029351],[-102.7380649,19.4933594],[-102.5818642,19.5282551],[-102.5437154,19.4295801],[-102.6699226,19.212412],[-102.7538159,19.255805],[-103.019727,19.1323711],[-102.9908352,19.0533789],[-103.0632385,19.027854],[-103.1250194,18.9301446],[-103.2238762,19.0241005],[-103.3324851,18.9732513],[-103.4730955,18.9910667],[-103.5732441,18.8713279],[-103.6302801,18.8853248],[-103.620031,18.8013832],[-103.7390459,18.6925077]]]}},{"n":"Guerrero","lvl":"red","g":{"type":"MultiPolygon","coordinates":[[[[-102.1844156,18.0263062],[-102.1385231,17.9405146],[-102.0332179,17.9879759],[-101.8140297,17.8903347],[-101.6671985,17.7340147],[-101.6474893,17.701156],[-101.6491626,17.6646273],[-101.4907259,17.6109804],[-101.4570529,17.5257909],[-101.2035655,17.4270499],[-101.0567072,17.3075837],[-101.0610903,17.2660082],[-99.9912286,16.9101353],[-99.6548459,16.6954044],[-99.3328858,16.6584491],[-98.9071012,16.5347091],[-98.7729654,16.5549419],[-98.5529227,16.3162393],[-98.3499376,16.4444489],[-98.3951394,16.5468364],[-98.2033642,16.5871804],[-98.2434423,16.6967001],[-98.108157,16.7609514],[-98.0723339,16.8742495],[-98.1112613,16.9588684],[-98.0072764,17.0401373],[-98.2221698,17.121914],[-98.2031362,17.2162874],[-98.3234952,17.2759442],[-98.2873732,17.3290111],[-98.3294518,17.532981],[-98.4896556,17.7034388],[-98.4963427,17.7688094],[-98.4249569,17.8395945],[-98.426617,17.978544],[-98.526725,17.996289],[-98.6505381,17.933161],[-98.8149384,18.0016967],[-98.7350978,18.0450951],[-98.8698016,18.0572115],[-98.881877,18.166162],[-99.000066,18.190205],[-99.016903,18.266391],[-99.06371,18.251483],[-99.066051,18.367105],[-99.140623,18.474973],[-99.177905,18.424745],[-99.357404,18.467669],[-99.494414,18.720545],[-99.6309078,18.7205522],[-99.6969935,18.7863369],[-99.6719724,18.7135039],[-99.7370314,18.7398325],[-99.7930047,18.6306576],[-99.9616722,18.5529789],[-100.0249636,18.6068668],[-100.0824138,18.5879498],[-100.0899511,18.5221608],[-100.3033764,18.3669429],[-100.385357,18.4265241],[-100.3737013,18.5291138],[-100.429097,18.5100481],[-100.429713,18.5992637],[-100.4870277,18.6403516],[-100.4306338,18.7832484],[-100.6102127,18.8878468],[-100.6960685,18.7941255],[-100.7666737,18.8654152],[-100.7989689,18.7845358],[-100.7442252,18.518073],[-100.5882298,18.4121452],[-100.6443863,18.34581],[-100.7981776,18.4805411],[-100.9574433,18.4444301],[-101.0120032,18.527543],[-101.2820771,18.544734],[-101.5074441,18.4867973],[-101.6249996,18.6013577],[-101.7717942,18.6037214],[-101.8822598,18.5342277],[-101.8632493,18.2616551],[-102.1425196,18.1869738],[-102.1844156,18.0263062]]],[[[-101.6591122,17.6799861],[-101.6593836,17.6732155],[-101.6514987,17.6757119],[-101.6591122,17.6799861]]],[[[-99.9086586,16.8250649],[-99.9056753,16.8175404],[-99.901195,16.8212927],[-99.9086586,16.8250649]]],[[[-99.9037681,16.8303175],[-99.9047033,16.8301669],[-99.9038504,16.8297613],[-99.9037681,16.8303175]]]]}},{"n":"Tabasco","lvl":"red","g":{"type":"Polygon","coordinates":[[[-94.1299658,18.2112995],[-94.0614003,17.9881243],[-94.0834307,17.8698684],[-93.9677861,17.8452523],[-93.9401072,17.7531699],[-93.7385108,17.6793701],[-93.7328826,17.6257602],[-93.6136011,17.5525112],[-93.6949202,17.3878043],[-93.635868,17.3143545],[-93.5152424,17.440495],[-93.4860563,17.5478743],[-93.3562777,17.6480374],[-93.3905478,17.7733997],[-93.349135,17.7670852],[-93.3809484,17.7831649],[-93.3405859,17.7981205],[-93.3408968,17.9303306],[-93.2783226,17.9852878],[-93.0913759,17.8975612],[-93.1156563,17.8222176],[-93.0252889,17.8253772],[-93.0407505,17.6097351],[-92.9485624,17.4827251],[-92.8315524,17.4808571],[-92.8542644,17.4111976],[-92.7857947,17.4175272],[-92.7550062,17.3434069],[-92.678765,17.3784935],[-92.6681851,17.4566945],[-92.5714109,17.5496086],[-92.3506737,17.617934],[-92.3373472,17.7120896],[-92.2746228,17.692258],[-92.1944994,17.7766411],[-92.1308254,17.7660803],[-92.1465827,17.814676],[-92.003355,17.8905181],[-91.9998878,17.9433446],[-91.9403041,17.9074129],[-91.9484091,17.8633083],[-91.8099431,17.8982482],[-91.7822531,17.7824846],[-91.8306616,17.7376772],[-91.6547435,17.6761571],[-91.6342877,17.5346242],[-91.7001374,17.4675178],[-91.4198326,17.3740706],[-91.3836642,17.3111831],[-91.4399546,17.2508691],[-90.9872641,17.2512992],[-90.9879692,17.9623928],[-91.2176577,17.9752783],[-91.5042462,18.1167223],[-91.5096207,18.1710588],[-91.5803271,18.1581836],[-91.6109603,18.0949834],[-91.6389027,17.8735056],[-91.9666369,18.015899],[-92.1608866,18.1553594],[-92.1760218,18.4582267],[-92.3592709,18.4449947],[-92.4690272,18.6504269],[-92.6907599,18.6181855],[-92.7730312,18.5046023],[-92.896539,18.443319],[-93.4379268,18.427278],[-94.1299658,18.2112995]]]}},{"n":"Tijuana (Stadt)","lvl":"red","g":{"type":"MultiPolygon","coordinates":[[[[-117.2968837,32.4435991],[-117.2998827,32.4395337],[-117.2940787,32.4335576],[-117.2968837,32.4435991]]],[[[-117.2633564,32.4259587],[-117.2638494,32.4241279],[-117.2629721,32.4230049],[-117.2625657,32.4247987],[-117.2633564,32.4259587]]],[[[-117.2606306,32.4202083],[-117.2595899,32.414392],[-117.2573016,32.4186275],[-117.2606306,32.4202083]]],[[[-117.2515871,32.4217414],[-117.2517581,32.4212629],[-117.2513645,32.4215919],[-117.2515871,32.4217414]]],[[[-117.2514602,32.4210063],[-117.2514602,32.4203667],[-117.2510224,32.4205539],[-117.2514602,32.4210063]]],[[[-117.2511641,32.4210454],[-117.2512213,32.4209113],[-117.2510941,32.420931],[-117.2511641,32.4210454]]],[[[-117.2435569,32.4147591],[-117.2448296,32.395669],[-117.2397245,32.3901943],[-117.2435569,32.4147591]]],[[[-117.1247433,32.5096236],[-117.0920536,32.4086919],[-117.0197996,32.4164534],[-116.9079133,32.3342945],[-116.9492077,32.2983556],[-116.8224505,32.2982499],[-116.6759978,32.1852183],[-116.5340807,32.2502305],[-116.668683,32.4112326],[-116.6908684,32.5710724],[-117.1247433,32.5096236]]]]}},{"n":"Baja California","lvl":"amber","g":{"type":"MultiPolygon","coordinates":[[[[-118.3650617,29.1463788],[-118.2907869,28.9675006],[-118.2810241,28.8964328],[-118.2960123,28.880137],[-118.2613903,28.8838078],[-118.2210714,28.9628532],[-118.2871986,29.1308803],[-118.2610309,29.188416],[-118.3650617,29.1463788]]],[[[-118.2987811,28.9357734],[-118.2990647,28.9343644],[-118.2983507,28.9355876],[-118.2987811,28.9357734]]],[[[-118.2976987,28.8655988],[-118.2978689,28.8654305],[-118.2976863,28.8655153],[-118.2976987,28.8655988]]],[[[-118.2976559,28.9505619],[-118.2974499,28.9502708],[-118.2970265,28.950633],[-118.2976559,28.9505619]]],[[[-118.2952355,28.8654006],[-118.2953495,28.8643192],[-118.2946919,28.8646366],[-118.2952355,28.8654006]]],[[[-118.2957831,28.947841],[-118.2955963,28.9470141],[-118.2953557,28.9475139],[-118.2957831,28.947841]]],[[[-118.2956294,28.8744057],[-118.2901121,28.8703672],[-118.2935839,28.8768585],[-118.2956294,28.8744057]]],[[[-118.2885454,28.9085731],[-118.2888799,28.9050408],[-118.2871928,28.905195],[-118.2885454,28.9085731]]],[[[-118.2805572,28.852927],[-118.2819189,28.8474796],[-118.2784303,28.8502408],[-118.2805572,28.852927]]],[[[-117.2968837,32.4435991],[-117.2998827,32.4395337],[-117.2940787,32.4335576],[-117.2968837,32.4435991]]],[[[-117.2633564,32.4259587],[-117.2638494,32.4241279],[-117.2629721,32.4230049],[-117.2625657,32.4247987],[-117.2633564,32.4259587]]],[[[-117.2606306,32.4202083],[-117.2595899,32.414392],[-117.2573016,32.4186275],[-117.2606306,32.4202083]]],[[[-117.2515871,32.4217414],[-117.2517581,32.4212629],[-117.2513645,32.4215919],[-117.2515871,32.4217414]]],[[[-117.2514602,32.4210063],[-117.2514602,32.4203667],[-117.2510224,32.4205539],[-117.2514602,32.4210063]]],[[[-117.2511641,32.4210454],[-117.2512213,32.4209113],[-117.2510941,32.420931],[-117.2511641,32.4210454]]],[[[-117.2435569,32.4147591],[-117.2448296,32.395669],[-117.2397245,32.3901943],[-117.2435569,32.4147591]]],[[[-117.1247433,32.5096236],[-117.0386645,32.284798],[-116.9219488,32.2252362],[-116.8802518,32.0186678],[-116.6137399,31.8438638],[-116.6532629,31.7242003],[-116.6709653,31.7184072],[-116.7245945,31.7481611],[-116.7440969,31.743524],[-116.6499073,31.6648179],[-116.6910522,31.5535178],[-116.363883,31.2481722],[-116.3087073,31.1470614],[-116.3363153,30.9683158],[-116.2697363,30.9670739],[-116.0577679,30.7961057],[-116.0474199,30.4705085],[-116.0014901,30.3600647],[-115.9175259,30.4009618],[-115.8114392,30.2998421],[-115.7812749,30.0909446],[-115.812699,29.949458],[-115.7019724,29.9003092],[-115.6998776,29.7552034],[-115.5053868,29.6169568],[-115.4571256,29.6249083],[-115.2502798,29.5144077],[-115.1885757,29.4278374],[-114.9670112,29.3751378],[-114.7159479,29.1103348],[-114.6269556,29.0899012],[-114.5921805,28.9704191],[-114.4141288,28.8764746],[-114.3486204,28.772312],[-114.347052,28.7308066],[-114.3160966,28.7270017],[-114.2839731,28.7059892],[-114.2701879,28.6601039],[-114.1741502,28.651054],[-114.1617106,28.5703605],[-114.0693412,28.515094],[-114.0478671,28.4385393],[-114.1249552,28.2568361],[-114.0622542,28.2076176],[-114.2047059,27.9999878],[-112.7649287,28],[-112.8048998,28.028512],[-112.7865092,28.1961366],[-112.8734996,28.2822268],[-112.8467154,28.4409001],[-113.1043385,28.5060777],[-113.1964361,28.792286],[-113.2516145,28.8405322],[-113.3547093,28.8043904],[-113.394037,28.9152303],[-113.385758,28.9396282],[-113.4800873,28.9477517],[-113.4790308,28.89454],[-113.5262019,28.8932726],[-113.5384951,29.0579546],[-113.6561399,29.208536],[-113.6375125,29.2833978],[-114.2081117,29.7438525],[-114.3859906,29.7770804],[-114.412984,29.8906873],[-114.5368158,29.9704283],[-114.6677225,30.1914185],[-114.6307274,30.4887098],[-114.6988074,30.6337396],[-114.7100383,30.9060957],[-114.8327599,30.9993661],[-114.8142869,31.0520539],[-114.8905742,31.1502898],[-114.857954,31.5011378],[-114.7836835,31.6355271],[-114.8169536,31.7287434],[-114.806303,31.8164206],[-114.96556,31.9214646],[-114.9753182,32.1779954],[-115.0530223,32.245174],[-114.9665924,32.3387935],[-114.9349965,32.4818746],[-114.8162064,32.4825683],[-114.8105049,32.6223489],[-114.7199073,32.7187133],[-117.1247433,32.5096236]]],[[[-116.8041444,31.8133651],[-116.8020677,31.8059017],[-116.8004291,31.8075289],[-116.8041444,31.8133651]]],[[[-116.7888147,31.806362],[-116.788407,31.7917223],[-116.786347,31.7913803],[-116.7888147,31.806362]]],[[[-116.0988091,30.4862712],[-116.1094887,30.4803587],[-116.1024732,30.4825217],[-116.0988091,30.4862712]]],[[[-115.7895354,29.7968726],[-115.7919355,29.7881517],[-115.788214,29.7933322],[-115.7895354,29.7968726]]],[[[-115.5740234,28.307956],[-115.5905324,28.2952506],[-115.5831081,28.2995678],[-115.5811715,28.2970715],[-115.5801228,28.3022022],[-115.5740234,28.307956]]],[[[-115.5840361,28.2985853],[-115.5840898,28.2982405],[-115.5838779,28.2982051],[-115.5840361,28.2985853]]],[[[-115.5806941,28.2967692],[-115.5808631,28.2958293],[-115.5806834,28.2958859],[-115.5806941,28.2967692]]],[[[-115.5793557,28.3017759],[-115.5791907,28.3013662],[-115.5790888,28.3016295],[-115.5793557,28.3017759]]],[[[-115.5789069,28.3019291],[-115.5789094,28.301756],[-115.5788796,28.30177],[-115.5789069,28.3019291]]],[[[-115.5740304,28.3137489],[-115.5740027,28.3135922],[-115.5738766,28.3136971],[-115.5740304,28.3137489]]],[[[-115.5666621,28.3132384],[-115.5682433,28.3068969],[-115.5607156,28.3069665],[-115.5666621,28.3132384]]],[[[-115.5367193,28.3049841],[-115.5460855,28.3022293],[-115.5436648,28.2911069],[-115.5367193,28.3049841]]],[[[-115.5480275,28.3158193],[-115.5479363,28.3148134],[-115.5475688,28.3150779],[-115.5480275,28.3158193]]],[[[-115.4999596,29.6150327],[-115.4997142,29.6140317],[-115.4995868,29.6151003],[-115.4999596,29.6150327]]],[[[-115.243063,28.221057],[-115.3454322,28.0743493],[-115.2938426,28.0943856],[-115.1854679,28.0315477],[-115.1565537,28.1794488],[-115.2067579,28.3729869],[-115.2642739,28.2939965],[-115.243063,28.221057]]],[[[-114.8017263,31.8009885],[-114.7681275,31.7085735],[-114.6506435,31.6798693],[-114.7552648,31.8097919],[-114.8017263,31.8009885]]],[[[-114.6267145,30.1312697],[-114.6261334,30.1291611],[-114.6256533,30.1311004],[-114.6267145,30.1312697]]],[[[-114.539993,30.0920008],[-114.5418048,30.0837515],[-114.5349464,30.0840672],[-114.539993,30.0920008]]],[[[-114.491095,30.0531643],[-114.4867659,30.0508055],[-114.4885093,30.054223],[-114.491095,30.0531643]]],[[[-114.4735613,30.0230937],[-114.4756709,30.0133174],[-114.4735426,30.0135705],[-114.4735613,30.0230937]]],[[[-114.4665232,30.0192142],[-114.4664025,30.0174003],[-114.4660753,30.0191282],[-114.4665232,30.0192142]]],[[[-114.4178264,29.9881157],[-114.414655,29.9501004],[-114.3918686,29.9607703],[-114.4178264,29.9881157]]],[[[-114.391514,29.9935982],[-114.3914148,29.9934567],[-114.3911613,29.9936166],[-114.391514,29.9935982]]],[[[-114.3870427,29.9921683],[-114.3899596,29.9891135],[-114.3890074,29.988758],[-114.3870427,29.9921683]]],[[[-114.3876163,29.99298],[-114.387619,29.992663],[-114.3875514,29.9929554],[-114.3876163,29.99298]]],[[[-114.3517005,28.7680165],[-114.3518575,28.7671172],[-114.3509589,28.7675474],[-114.3517005,28.7680165]]],[[[-114.312382,28.7238159],[-114.3124545,28.7236054],[-114.3123311,28.723643],[-114.312382,28.7238159]]],[[[-114.3030956,28.7095296],[-114.3031227,28.7094052],[-114.3029647,28.7094102],[-114.3030956,28.7095296]]],[[[-114.3030332,28.7098844],[-114.3029876,28.7097279],[-114.3028682,28.7097715],[-114.3030332,28.7098844]]],[[[-114.3027845,28.7097538],[-114.3027328,28.709615],[-114.3026376,28.7096738],[-114.3027845,28.7097538]]],[[[-114.3024619,28.7097632],[-114.302431,28.7095362],[-114.3023103,28.7097009],[-114.3024619,28.7097632]]],[[[-114.2952883,28.703429],[-114.2951324,28.7025124],[-114.2946982,28.7027785],[-114.2952883,28.703429]]],[[[-114.2957168,28.7037507],[-114.2958167,28.7036643],[-114.2956471,28.7036525],[-114.2957168,28.7037507]]],[[[-114.2776535,28.6706289],[-114.2777775,28.6686675],[-114.2765664,28.6697884],[-114.2776535,28.6706289]]],[[[-113.6066794,29.1685126],[-113.6078757,29.1664621],[-113.6071314,29.1665991],[-113.6066794,29.1685126]]],[[[-113.5977704,29.5320282],[-113.5974799,29.5312341],[-113.597342,29.531884],[-113.5977704,29.5320282]]],[[[-113.5941106,29.438453],[-113.4969583,29.283877],[-113.1161866,28.9871862],[-113.1013808,29.0555976],[-113.1747499,29.127497],[-113.167921,29.2790366],[-113.3681028,29.3087578],[-113.393063,29.4579605],[-113.5150994,29.5515499],[-113.5439855,29.5341281],[-113.5722318,29.5383286],[-113.5637748,29.5051442],[-113.5941106,29.438453]]],[[[-113.5667682,29.566203],[-113.5757791,29.5460793],[-113.5624015,29.5599365],[-113.5616156,29.5596671],[-113.5623291,29.5588085],[-113.5622594,29.5574996],[-113.5611449,29.5548328],[-113.5601056,29.5562992],[-113.559895,29.5607578],[-113.5667682,29.566203]]],[[[-113.5745217,29.5146868],[-113.5741615,29.5132659],[-113.5734006,29.5143004],[-113.5745217,29.5146868]]],[[[-113.5715574,29.5153284],[-113.5712,29.5148335],[-113.5704417,29.5152836],[-113.5715574,29.5153284]]],[[[-113.5628487,29.5561004],[-113.5626862,29.5557483],[-113.5625007,29.5561499],[-113.5628487,29.5561004]]],[[[-113.5588149,29.5509933],[-113.558746,29.5470888],[-113.5577847,29.554428],[-113.5588149,29.5509933]]],[[[-113.5473838,29.5501137],[-113.5474348,29.5499166],[-113.5472806,29.5498349],[-113.5473838,29.5501137]]],[[[-113.5398461,29.56645],[-113.5442445,29.5638058],[-113.5342995,29.5622693],[-113.5398461,29.56645]]],[[[-113.5355566,29.5431439],[-113.5352965,29.5406949],[-113.5349853,29.5431859],[-113.5355566,29.5431439]]],[[[-113.5298409,29.0984919],[-113.5291076,29.0963733],[-113.5273454,29.0985225],[-113.5298409,29.0984919]]],[[[-113.5276835,29.0938268],[-113.5025299,29.048563],[-113.5070977,29.0416431],[-113.4891825,29.0376861],[-113.5276835,29.0938268]]],[[[-113.525085,29.013305],[-113.524105,29.011717],[-113.524521,29.013493],[-113.525085,29.013305]]],[[[-113.523305,29.006814],[-113.520819,29.005626],[-113.521658,29.007146],[-113.523305,29.006814]]],[[[-113.516373,29.067602],[-113.518121,29.065421],[-113.5151238,29.0650281],[-113.516373,29.067602]]],[[[-113.5210432,28.9994476],[-113.5199842,28.9979047],[-113.5196589,28.9989045],[-113.5210432,28.9994476]]],[[[-113.5183776,28.9977613],[-113.5198595,28.9961592],[-113.5180654,28.9951267],[-113.5183776,28.9977613]]],[[[-113.5133369,29.0031129],[-113.5114543,28.9887464],[-113.5017179,28.9939759],[-113.5133369,29.0031129]]],[[[-113.514178,29.016663],[-113.515567,29.013114],[-113.510779,29.013855],[-113.514178,29.016663]]],[[[-113.5147815,29.0117166],[-113.5140661,29.0097313],[-113.5107272,29.0116645],[-113.5147815,29.0117166]]],[[[-113.5126361,29.0621136],[-113.5124575,29.0611322],[-113.5123495,29.0618743],[-113.5126361,29.0621136]]],[[[-113.5053161,29.0149266],[-113.5052042,29.0141038],[-113.5049993,29.0148197],[-113.5053161,29.0149266]]],[[[-113.4986455,29.0278457],[-113.4990536,29.0274679],[-113.4983569,29.0272057],[-113.4986455,29.0278457]]],[[[-113.477085,28.9748989],[-113.4813819,28.9672959],[-113.4763107,28.9671805],[-113.477085,28.9748989]]],[[[-113.4822893,28.956438],[-113.4811724,28.9552735],[-113.480629,28.9554234],[-113.4822893,28.956438]]],[[[-113.4744644,28.9568426],[-113.4764423,28.9553713],[-113.4735134,28.9563398],[-113.4744644,28.9568426]]],[[[-113.4643158,29.0215195],[-113.4664187,29.0140444],[-113.4604038,29.013227],[-113.4643158,29.0215195]]],[[[-113.3846301,28.9260096],[-113.3843377,28.9228732],[-113.3836323,28.9223402],[-113.3846301,28.9260096]]],[[[-113.3590995,28.8832113],[-113.3585563,28.8827263],[-113.3583914,28.8830046],[-113.3590995,28.8832113]]],[[[-113.3582293,28.8274792],[-113.3575905,28.8264052],[-113.3573554,28.8279418],[-113.3582293,28.8274792]]],[[[-113.3508288,28.8148554],[-113.3506729,28.8144984],[-113.3504441,28.8145546],[-113.3508288,28.8148554]]],[[[-113.3494452,28.8154307],[-113.3495498,28.8151259],[-113.3489569,28.8151644],[-113.3494452,28.8154307]]],[[[-113.0953714,29.0673417],[-113.0847884,29.0630612],[-113.0827296,29.0683114],[-113.0953714,29.0673417]]],[[[-113.0963919,29.0536703],[-113.0963382,29.0533397],[-113.0960003,29.0535601],[-113.0963919,29.0536703]]],[[[-113.046573,28.892407],[-113.040849,28.884272],[-113.033144,28.898956],[-113.046573,28.892407]]],[[[-113.043337,28.912128],[-113.043303,28.910548],[-113.042649,28.91164],[-113.043337,28.912128]]],[[[-113.029082,28.888305],[-113.029444,28.885559],[-113.026845,28.885982],[-113.029082,28.888305]]],[[[-112.999378,28.837147],[-112.9985711,28.8364978],[-112.9984403,28.8370656],[-112.999378,28.837147]]],[[[-112.9763818,28.8258906],[-112.9814029,28.8209547],[-112.9749924,28.823052],[-112.9763818,28.8258906]]],[[[-112.9664815,28.7345447],[-112.9667385,28.7332567],[-112.9656135,28.7335207],[-112.9664815,28.7345447]]],[[[-112.951346,28.7278028],[-112.9518369,28.7248532],[-112.9461888,28.7170586],[-112.951346,28.7278028]]],[[[-112.9629637,28.7248216],[-112.9635777,28.7233771],[-112.9617157,28.7233663],[-112.9629637,28.7248216]]],[[[-112.8979245,28.6972744],[-112.931223,28.696516],[-112.8947957,28.6797396],[-112.8979245,28.6972744]]],[[[-112.8943746,28.6788943],[-112.7827799,28.5804706],[-112.7527016,28.5919547],[-112.8388488,28.6611064],[-112.8943746,28.6788943]]]]}},{"n":"Sonora","lvl":"amber","g":{"type":"MultiPolygon","coordinates":[[[[-115.0530223,32.245174],[-114.9753182,32.1779954],[-114.96556,31.9214646],[-114.9106362,31.8676014],[-114.5827889,31.7522213],[-114.1692329,31.4988337],[-114.0259,31.4922],[-113.9562,31.5624],[-113.9794109,31.6314287],[-113.8524793,31.5953986],[-113.6403142,31.4805086],[-113.6246129,31.3279944],[-113.1102736,31.1996161],[-113.0589556,31.0723498],[-113.0919423,30.9952676],[-113.1284114,31.0589087],[-113.084268,30.6784813],[-112.8646302,30.4139154],[-112.8643976,30.2681579],[-112.7596118,30.1985557],[-112.7473448,29.9154272],[-112.6655454,29.8916594],[-112.5806228,29.7118143],[-112.3808329,29.486862],[-112.4096533,29.3443217],[-112.335533,29.2910608],[-112.3009,29.3291922],[-112.2323418,29.3056192],[-112.2299541,29.1783931],[-112.1654738,29.1141656],[-112.1722367,28.9684412],[-111.9267575,28.8061024],[-111.9520767,28.7591071],[-111.7757316,28.606545],[-111.7135762,28.4584],[-111.4664108,28.3683105],[-111.2550195,28.0541609],[-111.099283,27.9612485],[-111.1049831,27.9367488],[-111.0599807,27.9277944],[-111.0652198,27.9530042],[-110.9840023,27.9584338],[-110.9465886,27.921437],[-110.9505965,27.8686647],[-110.8838686,27.8394541],[-110.8558166,27.8998951],[-110.9069556,27.8973635],[-110.8483755,27.9850086],[-110.7881981,27.9200563],[-110.8143711,27.9228197],[-110.8528662,27.9165581],[-110.8531237,27.9123013],[-110.5264677,27.850803],[-110.6159478,27.8002155],[-110.5967,27.3114],[-110.4398963,27.2713417],[-110.3045587,27.1544994],[-109.9672071,27.0541803],[-109.8498423,26.7899654],[-109.7672747,26.7071472],[-109.4959588,26.6702606],[-109.5562513,26.7175551],[-109.5305918,26.753977],[-109.4357881,26.7157161],[-109.4300873,26.6723101],[-109.4851814,26.682901],[-109.4029601,26.6534773],[-109.267714,26.5016096],[-109.2600079,26.3197021],[-109.202603,26.3449656],[-109.1252338,26.297043],[-109.0062061,26.4025219],[-108.8813924,26.4062524],[-108.837762,26.4725233],[-108.9146699,26.47954],[-108.8731521,26.5510714],[-108.6788307,26.587015],[-108.4669776,26.9707018],[-108.4242708,26.9762298],[-108.6021786,27.0369847],[-108.663025,27.2201649],[-108.5909904,27.3179896],[-108.6522059,27.537834],[-108.739929,27.6011369],[-108.7844244,27.7304898],[-108.8955014,27.7447396],[-108.920341,27.784752],[-108.869241,27.8390318],[-109.0319947,28.018227],[-109.0730381,28.1487449],[-109.069695,28.2859709],[-108.7915854,28.2534946],[-108.479701,28.369551],[-108.583717,28.740751],[-108.7096506,28.8890396],[-108.6982119,29.128502],[-108.761902,29.254683],[-108.6697239,29.308136],[-108.717789,29.4665339],[-108.6252594,29.501171],[-108.6619963,29.5445166],[-108.655006,29.6494498],[-108.61821,29.6605867],[-108.659375,29.7161686],[-108.534622,29.752337],[-108.5412199,29.7961558],[-108.6358799,29.8297667],[-108.6202177,30.2982297],[-108.542199,30.2835122],[-108.6220565,30.3403181],[-108.6486522,30.4168647],[-108.6038339,30.4650845],[-108.6647719,30.4681516],[-108.6777922,30.5570728],[-108.8764653,30.6245743],[-108.8669253,30.6893866],[-108.9483025,30.7369113],[-108.9392428,30.9075652],[-108.8023926,30.904113],[-108.8032555,31.0048293],[-108.6838075,31.0059734],[-108.8456401,31.1355762],[-108.8050247,31.1929555],[-108.9062214,31.2063633],[-108.8172315,31.2390057],[-108.7559162,31.332419],[-111.0749881,31.3323564],[-114.8135922,32.4940383],[-114.9351181,32.4817514],[-114.9665924,32.3387935],[-115.0530223,32.245174]]],[[[-114.6842194,31.7559887],[-114.6135807,31.7259405],[-114.5887971,31.7428945],[-114.6158338,31.7569626],[-114.6842194,31.7559887]]],[[[-112.594289,28.7320799],[-112.5725189,28.668381],[-112.5420409,28.7115358],[-112.594289,28.7320799]]],[[[-112.5843528,28.8766703],[-112.3587576,28.7596084],[-112.2528546,28.7671842],[-112.2749519,28.8164908],[-112.1888678,28.9766688],[-112.2165442,28.9605721],[-112.1949443,29.0211232],[-112.274263,29.1371175],[-112.2645181,29.2454117],[-112.4566743,29.194195],[-112.5058781,29.0631049],[-112.4895394,28.9497704],[-112.5843528,28.8766703]]],[[[-112.4621465,29.2747203],[-112.4627661,29.2657928],[-112.4557858,29.268687],[-112.4621465,29.2747203]]],[[[-112.3068718,28.3908421],[-112.3002064,28.3723108],[-112.2961511,28.3879173],[-112.3068718,28.3908421]]],[[[-112.3052536,28.738901],[-112.3051147,28.736604],[-112.3044473,28.7380938],[-112.3052536,28.738901]]],[[[-112.3059553,28.7366518],[-112.3059659,28.7361399],[-112.3058186,28.736629],[-112.3059553,28.7366518]]],[[[-112.3053767,28.7363306],[-112.3053152,28.7362372],[-112.3052856,28.7365333],[-112.3053767,28.7363306]]],[[[-112.3000226,28.367167],[-112.3002352,28.3669957],[-112.3002352,28.3664086],[-112.2999375,28.3664273],[-112.3000226,28.367167]]],[[[-112.2979834,28.3718612],[-112.298341,28.3712768],[-112.2980961,28.3711723],[-112.2979834,28.3718612]]],[[[-112.2864142,28.7219791],[-112.2907838,28.7124025],[-112.2860055,28.7093318],[-112.2864142,28.7219791]]],[[[-112.2837812,28.7148445],[-112.2837721,28.7146941],[-112.2836901,28.7147898],[-112.2837812,28.7148445]]],[[[-112.2831645,28.7148584],[-112.2832983,28.7143319],[-112.2831582,28.7144026],[-112.2831645,28.7148584]]],[[[-112.2825119,28.7154413],[-112.2828017,28.7152318],[-112.2824943,28.7151775],[-112.2825119,28.7154413]]],[[[-111.9656235,28.8165402],[-111.9667366,28.8086365],[-111.9638372,28.8160984],[-111.9656235,28.8165402]]],[[[-111.3747075,27.9715779],[-111.3816818,27.9603282],[-111.3668598,27.9522448],[-111.3747075,27.9715779]]],[[[-111.1217366,27.9577974],[-111.1208686,27.9530619],[-111.1191556,27.9595944],[-111.1217366,27.9577974]]],[[[-111.0594522,27.9309325],[-111.0594668,27.9295668],[-111.0585248,27.9298812],[-111.0594522,27.9309325]]],[[[-111.0508906,27.9401963],[-111.0521078,27.9397593],[-111.0515981,27.9388504],[-111.0508906,27.9401963]]],[[[-111.0512708,27.9364967],[-111.0512569,27.9350634],[-111.0508514,27.935099],[-111.0512708,27.9364967]]],[[[-111.0292607,27.9529818],[-111.0291344,27.9485264],[-111.0279653,27.9525725],[-111.0292607,27.9529818]]],[[[-110.9901108,27.9351191],[-110.991095,27.9329121],[-110.9900802,27.9335947],[-110.9901108,27.9351191]]],[[[-110.9912295,27.9262177],[-110.9921004,27.9249825],[-110.9908356,27.9254451],[-110.9912295,27.9262177]]],[[[-110.969312,27.9097116],[-110.9693623,27.9084677],[-110.9683492,27.9088803],[-110.969312,27.9097116]]],[[[-110.9553964,27.8850298],[-110.9556877,27.8840979],[-110.9549796,27.885022],[-110.9553964,27.8850298]]],[[[-110.9532015,27.8761772],[-110.9526833,27.8755834],[-110.9524168,27.8765282],[-110.9532015,27.8761772]]],[[[-110.9509409,27.8683974],[-110.9507048,27.8675457],[-110.9508122,27.868438],[-110.9509409,27.8683974]]],[[[-110.9008509,27.8995727],[-110.9006953,27.898762],[-110.9003198,27.8991792],[-110.9008509,27.8995727]]],[[[-110.8986139,27.9010377],[-110.8986998,27.9002697],[-110.8984155,27.9005209],[-110.8986139,27.9010377]]],[[[-110.8815122,27.9104147],[-110.8800209,27.9080349],[-110.8791196,27.9105474],[-110.8815122,27.9104147]]],[[[-110.8743239,27.9118557],[-110.8720762,27.9074992],[-110.869571,27.9117325],[-110.8743239,27.9118557]]],[[[-110.8601725,27.8801001],[-110.8600974,27.8771981],[-110.8590245,27.8798251],[-110.8601725,27.8801001]]],[[[-110.8557308,27.9189732],[-110.855771,27.918703],[-110.8554786,27.9188215],[-110.8557308,27.9189732]]],[[[-110.8541456,27.9178545],[-110.8544487,27.9172501],[-110.8537406,27.9167121],[-110.8541456,27.9178545]]],[[[-110.8331873,27.9016496],[-110.8481834,27.8885237],[-110.847049,27.8871375],[-110.8415588,27.8876442],[-110.8331873,27.9016496]]],[[[-110.8383259,27.954949],[-110.839177,27.9545541],[-110.8382535,27.9546931],[-110.8383259,27.954949]]],[[[-110.836726,27.9551752],[-110.837925,27.9546578],[-110.8365758,27.9548956],[-110.836726,27.9551752]]]]}},{"n":"Coahuila","lvl":"amber","g":{"type":"Polygon","coordinates":[[[-103.9600019,27.835309],[-103.9008439,27.8268573],[-103.9356496,27.7975527],[-103.8811453,27.7391857],[-103.876876,27.3115921],[-103.8321226,27.2982935],[-103.7408344,27.0225217],[-103.8517007,26.8961338],[-103.6438915,26.6901585],[-103.3741835,26.6023549],[-103.2608253,26.2847268],[-103.3504882,26.14239],[-103.3394369,25.7076048],[-103.4932393,25.5385304],[-103.3369162,25.3712311],[-103.4620593,25.3763109],[-103.5109366,25.2798166],[-103.2621803,25.0585493],[-103.2591459,24.9646588],[-103.0928016,24.8227544],[-102.8563481,24.7403946],[-102.669694,25.0666365],[-102.4467634,24.9995154],[-102.4633252,25.1159162],[-102.2376222,25.1184624],[-101.84881,25.0176236],[-101.773463,24.8755351],[-101.6012606,24.8355632],[-101.6222697,24.7589831],[-101.4616394,24.7367568],[-101.3421416,24.8133525],[-101.2017256,24.7654883],[-101.0804951,24.5911853],[-100.9587926,24.5426841],[-100.9022338,24.5839177],[-100.8104164,24.5515938],[-100.8261324,24.8350046],[-100.7274955,24.9187165],[-100.8215056,24.9967108],[-100.8031305,25.1652585],[-100.5956856,25.2547625],[-100.3320074,25.1862852],[-100.3255501,25.2222588],[-100.2295756,25.2179165],[-100.2541384,25.3069088],[-100.3130235,25.3363672],[-100.4700988,25.3377898],[-100.4518784,25.4108107],[-100.61909,25.5056911],[-100.5384359,25.5318539],[-100.7834202,25.6396784],[-100.8619014,25.8184786],[-100.8344248,25.9450429],[-100.9055316,25.9569457],[-100.9164157,26.0756106],[-101.2067627,26.3697782],[-100.7530354,26.7352078],[-100.6912289,26.6137894],[-100.5381557,26.8085582],[-100.5339978,27.0455844],[-100.6827187,27.1113946],[-100.748621,27.0812528],[-100.7358358,27.0475797],[-100.7477135,27.0362568],[-100.7994361,27.0458308],[-100.8314923,27.1989089],[-100.6780062,27.3347973],[-100.4176996,27.3936328],[-100.3506098,27.6845986],[-100.1884255,27.7991372],[-99.9988448,27.6152794],[-99.8433,27.77543],[-99.93138,27.98062],[-100.29322,28.27791],[-100.36836,28.47636],[-100.33389,28.49929],[-100.5004736,28.6619539],[-100.53522,28.80522],[-100.64091,28.91485],[-100.67542,29.10148],[-100.77264,29.16835],[-100.81379,29.2636],[-101.00989,29.36831],[-101.0598746,29.4585813],[-101.2568045,29.5223324],[-101.2486433,29.6233522],[-101.3074235,29.5802327],[-101.3038354,29.6530602],[-101.3612139,29.649321],[-101.39991,29.77038],[-101.53621,29.75807],[-101.54454,29.81213],[-101.64504,29.75421],[-101.81808,29.81175],[-102.0729,29.78645],[-102.31557,29.88003],[-102.38764,29.76124],[-102.48702,29.78664],[-102.67467,29.74434],[-102.80856,29.5229],[-102.81275,29.39939],[-102.88415,29.34786],[-102.90635,29.26],[-102.86766,29.22344],[-102.99575,29.17927],[-103.11596,28.98461],[-103.30639,29.00459],[-103.5145121,28.6649978],[-103.5572953,28.6112807],[-103.5963737,28.6394745],[-103.9266919,27.9713568],[-103.8777159,27.9574903],[-103.8928858,27.914023],[-103.9549735,27.950821],[-103.9600019,27.835309]]]}},{"n":"Nuevo León","lvl":"amber","g":{"type":"Polygon","coordinates":[[[-101.2067627,26.3697782],[-100.9164157,26.0756106],[-100.9055316,25.9569457],[-100.8344248,25.9450429],[-100.8619014,25.8184786],[-100.7834202,25.6396784],[-100.5384359,25.5318539],[-100.61909,25.5056911],[-100.4518784,25.4108107],[-100.4700988,25.3377898],[-100.2541384,25.3069088],[-100.2295756,25.2179165],[-100.3255501,25.2222588],[-100.3320074,25.1862852],[-100.5919624,25.25505],[-100.8031305,25.1652585],[-100.8215056,24.9967108],[-100.7274955,24.9187165],[-100.8274135,24.8242079],[-100.7999341,24.5561861],[-100.7423242,24.4604354],[-100.711201,24.4915166],[-100.6035333,24.4013],[-100.6330685,24.2259788],[-100.5850853,24.2239291],[-100.6133998,24.1739441],[-100.5168196,24.1398969],[-100.5624112,23.9196405],[-100.4469962,23.6966358],[-100.4917473,23.5681777],[-100.4589498,23.5111581],[-100.4943471,23.5280282],[-100.5171429,23.4211469],[-100.4567914,23.3662374],[-100.4798813,23.1943263],[-100.3317743,23.162665],[-100.3742352,23.2653173],[-100.3062121,23.260916],[-100.2783787,23.310328],[-100.2063225,23.3071079],[-100.2282416,23.2504432],[-100.1018952,23.2310804],[-100.0780411,23.3059839],[-100.1449502,23.3395151],[-100.0802614,23.3957482],[-99.9212534,23.3791913],[-99.9611876,23.5568897],[-99.8606599,23.7744624],[-99.6021674,23.7628708],[-99.493791,23.8786929],[-99.4568707,23.866063],[-99.5418927,24.0336491],[-99.6570806,24.1179965],[-99.5899311,24.3961423],[-99.6363793,24.5066702],[-99.7198038,24.4837104],[-99.7329634,24.5539743],[-99.5462205,24.6130747],[-99.4777354,24.7126209],[-99.2949284,24.8041437],[-99.1819712,24.776041],[-99.2074333,24.8613921],[-99.1589429,24.9159881],[-99.1605919,25.0552773],[-99.0525399,25.1271253],[-99.0190558,25.0699253],[-98.9341699,25.0727631],[-98.4231316,25.4474929],[-98.421576,25.4893555],[-98.5817515,25.4893617],[-98.585126,26.0179176],[-98.8232265,26.0476486],[-98.9007519,25.9683227],[-99.0239714,26.1040566],[-99.1597243,26.06124],[-99.1978359,26.2586823],[-99.3641502,26.3292701],[-99.4012361,26.3047991],[-99.4309465,26.3513011],[-99.3968248,26.5965655],[-99.6591644,26.6703651],[-99.5808428,26.8301125],[-99.6613905,26.9008385],[-99.7666688,26.8898419],[-99.6500528,27.0658578],[-99.7476704,27.277247],[-99.7603788,27.4369587],[-99.9191536,27.4915151],[-99.9264182,27.549157],[-99.7281467,27.6791262],[-99.81731,27.77635],[-99.9988448,27.6152794],[-100.1884255,27.7991372],[-100.3506098,27.6845986],[-100.4176996,27.3936328],[-100.6780062,27.3347973],[-100.8314923,27.1989089],[-100.7994361,27.0458308],[-100.7477135,27.0362568],[-100.748621,27.0812528],[-100.6827187,27.1113946],[-100.5339978,27.0455844],[-100.5381557,26.8085582],[-100.6912289,26.6137894],[-100.7530354,26.7352078],[-101.2067627,26.3697782]]]}},{"n":"Jalisco","lvl":"amber","g":{"type":"MultiPolygon","coordinates":[[[[-105.6954034,20.4062729],[-105.5554703,20.2263142],[-105.5495614,20.0945693],[-105.3303383,19.766358],[-105.0889538,19.5604532],[-105.0247822,19.4360795],[-105.0263373,19.3820989],[-104.8734125,19.2762042],[-104.7941367,19.2951138],[-104.7889704,19.2807117],[-104.8095059,19.2581496],[-104.8084974,19.2326264],[-104.7327072,19.2393772],[-104.6980082,19.1761566],[-104.589083,19.1503691],[-104.5309051,19.2593604],[-104.4720292,19.2286674],[-104.4009456,19.2890698],[-104.1229846,19.3190419],[-104.0617251,19.4977029],[-103.8192529,19.4087397],[-103.6182765,19.5125187],[-103.48643,19.3378906],[-103.5264806,19.0787281],[-103.4950202,18.9706664],[-103.2238762,19.0241005],[-103.1250194,18.9301446],[-103.0632385,19.027854],[-102.9908352,19.0533789],[-103.019727,19.1323711],[-102.7538159,19.255805],[-102.6699226,19.212412],[-102.5435967,19.43096],[-102.5818642,19.5282551],[-102.7380649,19.4933594],[-102.715932,19.6029351],[-102.8056625,19.6748377],[-102.8195268,19.7779412],[-102.7393963,19.8158258],[-102.7312151,19.8995078],[-102.7768735,19.9601537],[-102.9512149,19.9965565],[-103.0252195,19.960492],[-103.0441523,20.1241193],[-102.9264482,20.1295751],[-102.9401702,20.1716818],[-102.8162873,20.1060478],[-102.5054424,20.3158577],[-102.2536343,20.3352637],[-102.0708826,20.4090192],[-101.9511437,20.6074268],[-102.0959084,20.7800505],[-102.079867,20.8290651],[-101.9389498,20.9306142],[-101.8750037,21.0928944],[-101.7811088,21.1605279],[-101.7597165,21.2676217],[-101.6431771,21.2993357],[-101.677583,21.3951424],[-101.5704156,21.4185357],[-101.6412688,21.5266483],[-101.5801887,21.6255313],[-101.5856941,21.7787771],[-101.5105417,21.7990585],[-101.5659635,21.8420333],[-101.5698062,21.9170807],[-101.6506956,21.9076754],[-101.8014361,22.0309962],[-101.9125984,21.9974857],[-101.8380033,21.9073443],[-102.0384175,21.853198],[-102.1420997,21.7053742],[-102.3039903,21.6666847],[-102.3101475,21.6266765],[-102.6689263,21.7640514],[-102.805279,21.6712824],[-102.7647413,21.5960646],[-102.6307343,21.5339833],[-102.677777,21.34089],[-102.729128,21.3873555],[-102.9106522,21.2052347],[-103.0655,21.2558065],[-103.0985001,21.1284933],[-103.0564754,21.0993198],[-103.1273291,21.0535311],[-103.2096016,21.0942206],[-103.3531029,21.04526],[-103.4285824,21.1467238],[-103.5689588,21.1167177],[-103.6673241,21.2160485],[-103.6339934,21.2822918],[-103.7136477,21.2666874],[-103.7208391,21.3079611],[-103.5039202,21.376837],[-103.5386465,21.4447898],[-103.5953116,21.3909062],[-103.7014647,21.4662659],[-103.6897889,21.5523532],[-103.5452222,21.5876389],[-103.5084736,21.739735],[-103.5726272,21.8034898],[-103.47053,21.8135403],[-103.278561,21.9896501],[-103.2055679,21.9651944],[-103.1114865,22.0142613],[-103.1527838,22.087622],[-103.0770247,22.1255044],[-103.1060588,22.191356],[-103.0554552,22.2472563],[-103.1009877,22.2939749],[-103.220622,22.2804662],[-103.1685777,22.3850128],[-103.2852307,22.4142442],[-103.366683,22.351039],[-103.3556881,22.2797993],[-103.3068827,22.3062831],[-103.2951044,22.2532853],[-103.4089596,22.2153649],[-103.4394997,22.1176392],[-103.6838473,22.1092052],[-103.5949032,22.2730784],[-103.6421115,22.3408733],[-103.5591937,22.4284276],[-103.6027587,22.5567915],[-103.726555,22.5741466],[-103.8454342,22.3427575],[-103.862936,22.1668824],[-103.9261242,22.3320728],[-103.8669294,22.4093806],[-103.8607206,22.5676189],[-103.7609618,22.625614],[-103.7521056,22.7121615],[-104.0129993,22.7476259],[-104.0731987,22.6941332],[-104.0155236,22.6688334],[-103.9723321,22.5451136],[-104.0055708,22.5366003],[-103.9293927,22.4760986],[-104.0151338,22.3648129],[-104.0941608,22.3550479],[-104.0515747,22.4667477],[-104.0771602,22.5317818],[-104.214828,22.4841615],[-104.1646877,22.3916495],[-104.2207499,22.4210997],[-104.2983786,22.3478114],[-104.3711642,21.9760381],[-104.1933195,21.9854201],[-104.1617484,21.8098413],[-103.9234819,21.7718023],[-103.887725,21.6978182],[-103.9192346,21.5819859],[-103.7208955,21.4254312],[-103.7644034,21.4103042],[-103.7493518,21.3367085],[-103.8193911,21.248435],[-103.973454,21.2563283],[-104.0279688,21.1946725],[-104.2193979,21.1766105],[-104.2427129,21.0273316],[-104.2065878,20.9363734],[-104.2954158,20.845496],[-104.3617684,20.840931],[-104.3758922,20.784073],[-104.2828562,20.7834806],[-104.2536398,20.6034187],[-104.2884866,20.6891566],[-104.5569217,20.9241524],[-104.8380989,21.0200086],[-104.9672441,20.9095081],[-105.0803369,20.9314709],[-105.1425461,20.8864658],[-105.1733966,20.7677114],[-105.2789354,20.6813307],[-105.2329658,20.615884],[-105.2583874,20.55711],[-105.3161145,20.5121456],[-105.6043278,20.4755122],[-105.6954034,20.4062729]]],[[[-105.2925932,20.5457082],[-105.2922872,20.544369],[-105.2911509,20.5452519],[-105.2925932,20.5457082]]],[[[-105.2925062,20.546008],[-105.2921685,20.545873],[-105.2920395,20.5461075],[-105.2925062,20.546008]]],[[[-105.2898878,20.5448907],[-105.2902084,20.5443649],[-105.2899181,20.5444058],[-105.2898878,20.5448907]]],[[[-105.288022,20.5447987],[-105.2880645,20.5446943],[-105.2880114,20.5447357],[-105.288022,20.5447987]]],[[[-105.2868082,20.5464317],[-105.2870502,20.5460822],[-105.286569,20.546296],[-105.2868082,20.5464317]]],[[[-105.147312,19.5790452],[-105.1475831,19.5784453],[-105.1465563,19.5787018],[-105.147312,19.5790452]]],[[[-105.1462616,19.5815874],[-105.1460272,19.5795144],[-105.145078,19.5807328],[-105.1462616,19.5815874]]],[[[-105.1347588,19.5750119],[-105.1360247,19.5733888],[-105.1345728,19.5744124],[-105.1347588,19.5750119]]],[[[-105.1328594,19.5741319],[-105.1329698,19.5733206],[-105.1323745,19.5739204],[-105.1328594,19.5741319]]],[[[-105.1309588,19.5738155],[-105.1305131,19.573146],[-105.1305501,19.5739219],[-105.1309588,19.5738155]]],[[[-105.1135749,19.5615198],[-105.1120032,19.5570628],[-105.1102009,19.561366],[-105.1135749,19.5615198]]],[[[-105.1154101,19.5488538],[-105.1141768,19.5475196],[-105.1130689,19.548903],[-105.1154101,19.5488538]]],[[[-105.1093197,19.5521009],[-105.1080519,19.5445301],[-105.1062522,19.5502866],[-105.1093197,19.5521009]]],[[[-105.106851,19.5564057],[-105.1076299,19.5556392],[-105.1064022,19.5560937],[-105.106851,19.5564057]]],[[[-105.0934238,19.5267216],[-105.0920489,19.5221648],[-105.0903867,19.5238092],[-105.0934238,19.5267216]]],[[[-105.0942453,19.540469],[-105.093377,19.5378963],[-105.0920751,19.5392921],[-105.0942453,19.540469]]],[[[-105.0939417,19.5304921],[-105.0941048,19.5291303],[-105.0930565,19.5303209],[-105.0939417,19.5304921]]],[[[-105.0924475,19.5362443],[-105.092126,19.5350155],[-105.0919542,19.5362867],[-105.0924475,19.5362443]]],[[[-105.0887765,19.5335057],[-105.0889457,19.5315701],[-105.0876604,19.5317171],[-105.0887765,19.5335057]]],[[[-105.088915,19.5361103],[-105.0881088,19.533866],[-105.0870503,19.5348229],[-105.088915,19.5361103]]],[[[-105.085393,19.5225767],[-105.0869756,19.5213452],[-105.0854497,19.5210756],[-105.085393,19.5225767]]],[[[-105.085056,19.51468],[-105.0859338,19.5137666],[-105.0851,19.5137535],[-105.085056,19.51468]]],[[[-105.0661345,19.4791063],[-105.0674848,19.4771186],[-105.0639675,19.4776328],[-105.0661345,19.4791063]]],[[[-105.0635819,19.4771416],[-105.0641904,19.476372],[-105.0631077,19.4756033],[-105.0635819,19.4771416]]],[[[-105.036197,19.4412337],[-105.0351835,19.4396954],[-105.0349795,19.4411698],[-105.036197,19.4412337]]],[[[-105.0354978,19.3909816],[-105.0342684,19.3890371],[-105.0338402,19.3903868],[-105.0354978,19.3909816]]],[[[-104.9595442,19.3076137],[-104.9601433,19.3065661],[-104.9599129,19.306577],[-104.9595442,19.3076137]]],[[[-104.9553514,19.3109426],[-104.9561722,19.3100177],[-104.9556148,19.3100411],[-104.9553514,19.3109426]]],[[[-104.9520443,19.3157348],[-104.9514723,19.3147154],[-104.9513518,19.3156585],[-104.9520443,19.3157348]]],[[[-104.8780421,19.2739317],[-104.8763093,19.271938],[-104.8752099,19.2733237],[-104.8780421,19.2739317]]],[[[-104.8149297,19.2314981],[-104.8133123,19.2262139],[-104.8139759,19.2316512],[-104.8149297,19.2314981]]],[[[-104.81355,19.2346228],[-104.8120841,19.2329313],[-104.812942,19.2345824],[-104.81355,19.2346228]]]]}},{"n":"Colima","lvl":"amber","g":{"type":"MultiPolygon","coordinates":[[[[-114.7600696,18.3459741],[-114.696638,18.3452772],[-114.6803717,18.3609433],[-114.7412632,18.3718803],[-114.7600696,18.3459741]]],[[[-114.7559257,18.3692562],[-114.7585808,18.3671574],[-114.7568642,18.3673814],[-114.7559257,18.3692562]]],[[[-114.7582027,18.3695601],[-114.7582859,18.3694532],[-114.7578983,18.3694456],[-114.7582027,18.3695601]]],[[[-114.7326319,18.3420292],[-114.7326292,18.3419223],[-114.7325689,18.3419872],[-114.7326319,18.3420292]]],[[[-114.6972274,18.3702945],[-114.69768,18.3693679],[-114.6969022,18.3700323],[-114.6972274,18.3702945]]],[[[-114.6942213,18.3714482],[-114.694053,18.3711231],[-114.693308,18.3713432],[-114.6942213,18.3714482]]],[[[-112.0722524,19.0000723],[-112.0721093,18.9998939],[-112.0720639,19.0000344],[-112.0722524,19.0000723]]],[[[-111.0577971,18.8310018],[-111.0580694,18.8295101],[-111.0576574,18.8293707],[-111.0577971,18.8310018]]],[[[-110.9884317,18.8662488],[-111.0544905,18.7793379],[-111.0490724,18.7798509],[-111.0356265,18.7875121],[-110.9518397,18.7192394],[-110.9076543,18.7786332],[-110.9162924,18.7855391],[-110.916401,18.7992636],[-110.9389892,18.8224975],[-110.9403625,18.8343278],[-110.9884317,18.8662488]]],[[[-111.0199066,18.7652346],[-111.0199218,18.7649478],[-111.0195915,18.7651605],[-111.0199066,18.7652346]]],[[[-110.9706273,18.8685527],[-110.9707629,18.8683558],[-110.9706143,18.867911],[-110.9706273,18.8685527]]],[[[-110.9676911,18.8750008],[-110.9677691,18.8746035],[-110.9676038,18.8746175],[-110.9676911,18.8750008]]],[[[-110.9485573,18.8408291],[-110.9485176,18.8406756],[-110.9484965,18.8407662],[-110.9485573,18.8408291]]],[[[-110.9470949,18.840834],[-110.946942,18.840763],[-110.946891,18.840933],[-110.9470949,18.840834]]],[[[-110.9157372,18.7880606],[-110.9162012,18.7877876],[-110.9154743,18.7878346],[-110.9157372,18.7880606]]],[[[-110.8003083,19.3261811],[-110.7969207,19.301552],[-110.7949787,19.3337463],[-110.801701,19.3349656],[-110.8003083,19.3261811]]],[[[-110.8080019,19.326212],[-110.8082713,19.3254387],[-110.8075076,19.3255177],[-110.8080019,19.326212]]],[[[-110.8070005,19.3266326],[-110.8070117,19.3258418],[-110.8068054,19.3260277],[-110.8070005,19.3266326]]],[[[-104.6905857,19.1769759],[-104.6040092,19.1508661],[-104.489382,19.1245531],[-104.4378874,19.0834581],[-104.3548206,19.1151545],[-104.3038856,19.071785],[-104.331839,19.0174792],[-103.9831847,18.8725824],[-103.7377599,18.6841747],[-103.620031,18.8013832],[-103.6302801,18.8853248],[-103.5732441,18.8713279],[-103.4887641,18.9621442],[-103.5264806,19.0787281],[-103.48643,19.3378906],[-103.6182765,19.5125187],[-103.8192529,19.4087397],[-104.0617251,19.4977029],[-104.1229846,19.3190419],[-104.4009456,19.2890698],[-104.4720292,19.2286674],[-104.5309051,19.2593604],[-104.589083,19.1503691],[-104.6905857,19.1769759]]],[[[-104.4863373,19.10476],[-104.4872751,19.1011431],[-104.4846886,19.1028542],[-104.4863373,19.10476]]],[[[-104.4863493,19.1007631],[-104.4867094,19.100515],[-104.4862886,19.1006489],[-104.4863493,19.1007631]]],[[[-104.329933,19.0512433],[-104.3296196,19.0508078],[-104.3298344,19.0512721],[-104.329933,19.0512433]]]]}},{"n":"Veracruz","lvl":"amber","g":{"type":"MultiPolygon","coordinates":[[[[-98.6815466,22.3715748],[-98.5793158,22.3777569],[-98.4759084,22.2886398],[-98.325967,22.2430528],[-98.4320167,22.1282654],[-98.4677686,21.9652559],[-98.5788391,21.9660923],[-98.5031457,21.9366264],[-98.543847,21.9321175],[-98.5107975,21.908697],[-98.5480335,21.8601051],[-98.4547001,21.7664267],[-98.6436307,21.6316817],[-98.5322558,21.5011395],[-98.5191879,21.4013036],[-98.4686971,21.3870326],[-98.5439817,21.2639012],[-98.4683597,21.2496511],[-98.4164357,21.1549819],[-98.2791311,21.1927526],[-98.2821738,21.1364174],[-98.2168246,21.1514724],[-98.1473582,21.0784497],[-98.265503,20.8665362],[-98.2336526,20.7975556],[-98.3285223,20.7840968],[-98.345146,20.864853],[-98.4029091,20.8583839],[-98.4497289,20.7513457],[-98.5501798,20.6893925],[-98.5333974,20.6627169],[-98.4214478,20.7442761],[-98.4948467,20.6443405],[-98.4801805,20.5889989],[-98.5972857,20.4957709],[-98.5488493,20.3600805],[-98.4603892,20.3314496],[-98.3210136,20.4180138],[-98.158043,20.5425613],[-98.0749028,20.6765478],[-97.9793337,20.5149334],[-97.909616,20.586479],[-97.922447,20.716519],[-97.8455926,20.8396271],[-97.8201775,20.7907542],[-97.7769387,20.8243436],[-97.6897054,20.7999144],[-97.7654535,20.7545469],[-97.7370727,20.6461989],[-97.6930843,20.5652101],[-97.5899528,20.5561497],[-97.5422088,20.4878391],[-97.6463827,20.4109128],[-97.7295359,20.4532338],[-97.7567299,20.2096884],[-97.6638661,20.1512128],[-97.6116932,20.1846815],[-97.5706235,20.0817747],[-97.4511158,20.249162],[-97.1224088,20.1367215],[-97.304559,19.8706946],[-97.30393,19.6711555],[-97.4342785,19.5888484],[-97.4045558,19.4958662],[-97.3482585,19.4846269],[-97.3973565,19.4190642],[-97.3604531,19.3760293],[-97.2849682,19.3916367],[-97.2002734,19.3092647],[-97.0455113,19.3212826],[-96.9855601,19.2793968],[-97.0561547,19.1976665],[-97.0270518,19.1332362],[-97.194589,19.171813],[-97.2613994,19.0966272],[-97.2851257,18.9994308],[-97.2418156,18.9021427],[-97.3535588,18.790064],[-97.337261,18.6785907],[-97.1414427,18.5964179],[-97.0799675,18.4545077],[-96.9989173,18.5319164],[-96.8992509,18.5486479],[-96.8423575,18.4933888],[-96.7970118,18.5119351],[-96.7812949,18.4296293],[-96.696446,18.3647583],[-96.681544,18.5032728],[-96.7268995,18.529829],[-96.6830217,18.6696881],[-96.4610706,18.5730436],[-96.2174781,18.1619674],[-95.8331669,18.1290268],[-95.7999247,17.9500126],[-95.9028638,17.7341037],[-95.7811143,17.6388769],[-95.8075496,17.5918416],[-95.7268969,17.578029],[-95.7022439,17.5185321],[-95.6537783,17.560391],[-95.5853338,17.5350266],[-95.2384508,17.7388718],[-95.1878596,17.6493175],[-95.2787215,17.6133777],[-95.0765674,17.3729337],[-94.8907816,17.311056],[-94.9224739,17.1937597],[-93.8674267,17.1369649],[-93.8014487,17.2403795],[-93.6626944,17.2562769],[-93.6079398,17.31493],[-93.6949202,17.3878043],[-93.6136011,17.5525112],[-93.7328826,17.6257602],[-93.7385108,17.6793701],[-93.9401072,17.7531699],[-93.9677861,17.8452523],[-94.0834307,17.8698684],[-94.0614003,17.9881243],[-94.1314862,18.213069],[-94.5397945,18.1612061],[-94.8165737,18.5385758],[-95.0338127,18.5723419],[-95.188905,18.7097027],[-95.5887363,18.722238],[-95.8622685,18.8325035],[-95.9409376,18.9053955],[-95.9782067,19.0653223],[-96.0852553,19.0795173],[-96.1234899,19.2137569],[-96.29309,19.3199025],[-96.4494956,19.8492041],[-97.1774675,20.6620879],[-97.4202416,21.2308971],[-97.3279044,21.5671652],[-97.5643344,21.7707938],[-97.6980659,21.9564836],[-97.7852524,22.1663253],[-97.7743477,22.263916],[-97.8448882,22.2069658],[-97.8949624,22.2223784],[-98.000324,22.2974324],[-97.9900202,22.3508638],[-98.0742633,22.3477812],[-98.1949952,22.4695589],[-98.3168229,22.4685623],[-98.3175782,22.3909739],[-98.4371702,22.4335883],[-98.638156,22.414524],[-98.6815466,22.3715748]]],[[[-97.2282575,21.4719157],[-97.2252722,21.4686097],[-97.2225767,21.4755212],[-97.2262379,21.4724158],[-97.2282575,21.4719157]]],[[[-97.2265591,21.4731645],[-97.2266552,21.4727492],[-97.2221159,21.4765953],[-97.2265591,21.4731645]]],[[[-96.0929447,19.1760572],[-96.0910565,19.1750925],[-96.0920713,19.1771181],[-96.0929447,19.1760572]]],[[[-96.0675162,19.2006909],[-96.0661343,19.1992305],[-96.0668457,19.2008429],[-96.0675162,19.2006909]]],[[[-95.9545587,19.0800024],[-95.9542027,19.0789956],[-95.9540652,19.0801368],[-95.9545587,19.0800024]]],[[[-95.9381058,19.1020343],[-95.9389423,19.100955],[-95.9385142,19.1006245],[-95.9381058,19.1020343]]]]}},{"n":"Oaxaca","lvl":"amber","g":{"type":"MultiPolygon","coordinates":[[[[-98.5526959,16.3162857],[-98.2042728,16.2285446],[-97.7885053,15.982445],[-97.5296894,15.9694309],[-97.2104601,15.9229185],[-96.8604188,15.7398215],[-96.5574075,15.6568776],[-96.2375211,15.6824843],[-96.2256234,15.6978676],[-96.205155,15.7015866],[-96.2037632,15.7119628],[-96.1278607,15.7376062],[-96.1214411,15.7607171],[-96.0943326,15.7736582],[-96.0749029,15.7667371],[-96.0666305,15.7809328],[-95.9540294,15.8296364],[-95.5685241,15.9577922],[-95.435617,15.9760964],[-95.3504091,16.0816409],[-95.142342,16.1886507],[-94.5400451,16.1918653],[-94.0002262,16.0030772],[-94.1027637,16.1425159],[-94.032961,16.2759449],[-94.139156,16.4617864],[-93.8674267,17.1369649],[-94.9224739,17.1937597],[-94.8907816,17.311056],[-95.0765674,17.3729337],[-95.2787215,17.6133777],[-95.1878596,17.6493175],[-95.2384508,17.7388718],[-95.5319962,17.555834],[-95.6542908,17.5602959],[-95.7022439,17.5185321],[-95.9027736,17.7326526],[-95.7999247,17.9500126],[-95.8331669,18.1290268],[-96.2174781,18.1619674],[-96.4573088,18.5704374],[-96.6830217,18.6696881],[-96.7268995,18.529829],[-96.6822752,18.5071182],[-96.7097071,18.4299542],[-96.6745633,18.3813954],[-96.7546377,18.3921586],[-96.8551819,18.2411277],[-96.991479,18.230739],[-97.042094,18.156569],[-97.113758,18.149468],[-97.167368,18.200903],[-97.303543,18.159028],[-97.489245,18.025592],[-97.543905,18.033445],[-97.653176,18.175289],[-97.654714,18.293093],[-97.797297,18.283175],[-97.867483,18.144571],[-97.8106378,18.0677272],[-97.842604,17.996082],[-97.790921,18.004158],[-97.771671,18.068368],[-97.697775,18.018816],[-97.766381,18.005915],[-97.819287,17.914738],[-98.130394,17.988084],[-98.209746,17.879758],[-98.28231,17.93515],[-98.328825,17.878926],[-98.4248874,17.8659818],[-98.4963427,17.7688094],[-98.4861725,17.6809922],[-98.3294518,17.532981],[-98.2873732,17.3290111],[-98.3234952,17.2759442],[-98.2031362,17.2162874],[-98.2221698,17.121914],[-98.0072764,17.0401373],[-98.1112613,16.9588684],[-98.0723339,16.8742495],[-98.108157,16.7609514],[-98.2434423,16.6967001],[-98.2033642,16.5871804],[-98.3951394,16.5468364],[-98.3499376,16.4444489],[-98.5526959,16.3162857]]],[[[-97.351613,15.9378387],[-97.3525223,15.9363518],[-97.3512778,15.9370043],[-97.351613,15.9378387]]],[[[-96.2289024,15.6884658],[-96.2291675,15.6860938],[-96.2275181,15.6874276],[-96.2289024,15.6884658]]],[[[-96.2233257,15.6908399],[-96.2225909,15.6897634],[-96.2221045,15.690943],[-96.2233257,15.6908399]]],[[[-96.1626728,15.7217536],[-96.1603421,15.7178891],[-96.1613421,15.7215908],[-96.1626728,15.7217536]]],[[[-96.1187891,15.7479991],[-96.1187544,15.7469809],[-96.1181016,15.7472375],[-96.1187891,15.7479991]]],[[[-96.1172526,15.748241],[-96.1172921,15.7478466],[-96.1169029,15.7479118],[-96.1172526,15.748241]]],[[[-96.1162575,15.7491022],[-96.116406,15.7488308],[-96.1161395,15.7489077],[-96.1162575,15.7491022]]],[[[-96.115959,15.7490074],[-96.1160197,15.7484632],[-96.115611,15.7485608],[-96.115959,15.7490074]]],[[[-96.0947025,15.771968],[-96.0947613,15.7715544],[-96.0945518,15.7719107],[-96.0947025,15.771968]]],[[[-96.0845684,15.7656692],[-96.0838195,15.7625279],[-96.0827603,15.7640406],[-96.0845684,15.7656692]]],[[[-96.0599261,15.7804924],[-96.0600081,15.7797439],[-96.0597163,15.7798472],[-96.0599261,15.7804924]]],[[[-95.5760373,15.9414682],[-95.5748937,15.9401507],[-95.574355,15.9412664],[-95.5760373,15.9414682]]]]}},{"n":"Chiapas","lvl":"amber","g":{"type":"Polygon","coordinates":[[[-94.139156,16.4617864],[-94.032961,16.2759449],[-94.1095676,16.1791012],[-94.0360081,16.0220947],[-93.7489812,15.896515],[-93.3323455,15.5911245],[-92.2283178,14.5310748],[-92.1472053,14.6587215],[-92.1848468,14.8282629],[-92.1362163,14.8916496],[-92.1504854,14.9893788],[-92.0592798,15.0708208],[-92.2105499,15.2606071],[-91.7315687,16.0738945],[-90.4421549,16.0738051],[-90.4562433,16.2494588],[-90.3827247,16.3395583],[-90.4120782,16.3620097],[-90.3715136,16.3660238],[-90.3948261,16.4158939],[-90.4864873,16.4234481],[-90.4799755,16.4609879],[-90.6314417,16.4779233],[-90.6262966,16.5780391],[-90.66711,16.5818235],[-90.7122445,16.7250911],[-90.9217651,16.8219353],[-90.9650093,16.9015],[-90.9878314,16.8630849],[-91.0656273,16.9028582],[-91.2669432,17.1078781],[-91.2778505,17.1791784],[-91.3466513,17.1588669],[-91.4274243,17.2165948],[-91.4255293,17.3018441],[-91.3835142,17.3128305],[-91.4198326,17.3740706],[-91.6999794,17.4672978],[-91.6342877,17.5346242],[-91.6547435,17.6761571],[-91.8306616,17.7376772],[-91.7822531,17.7824846],[-91.8125212,17.900372],[-91.9484091,17.8633083],[-91.9403041,17.9074129],[-91.9998878,17.9433446],[-92.003355,17.8905181],[-92.1465827,17.814676],[-92.1308254,17.7660803],[-92.1944994,17.7766411],[-92.2746228,17.692258],[-92.3373472,17.7120896],[-92.3506737,17.617934],[-92.5714109,17.5496086],[-92.6681851,17.4566945],[-92.678765,17.3784935],[-92.7541802,17.3432986],[-92.7857947,17.4175272],[-92.8542644,17.4111976],[-92.8315524,17.4808571],[-92.9485624,17.4827251],[-93.0407505,17.6097351],[-93.0252889,17.8253772],[-93.1156563,17.8222176],[-93.0913759,17.8975612],[-93.2783226,17.9852878],[-93.3408968,17.9303306],[-93.3405859,17.7981205],[-93.3809484,17.7831649],[-93.349135,17.7670852],[-93.3905478,17.7733997],[-93.3562777,17.6480374],[-93.487553,17.546038],[-93.5138047,17.4428052],[-93.6626944,17.2562769],[-93.7983058,17.2419226],[-93.8609158,17.1637411],[-94.139156,16.4617864]]]}},{"n":"Quintana Roo","lvl":"amber","g":{"type":"MultiPolygon","coordinates":[[[[-89.2965618,19.551174],[-89.1466668,19.4238616],[-89.1212292,18.3858496],[-89.1430659,18.1458196],[-89.2002366,18.1446293],[-89.2024577,18.0832762],[-89.1447535,18.057699],[-89.2067389,18.0210799],[-89.205872,17.9540997],[-89.0365205,18.0047061],[-88.8598292,17.8943094],[-88.7164812,18.0608307],[-88.6974871,18.1823979],[-88.6155766,18.2233799],[-88.4768676,18.4940314],[-88.2500943,18.4730722],[-88.2496336,18.4155524],[-88.0303658,18.4147942],[-88.0311671,18.1675239],[-87.8496158,18.1847443],[-87.5365895,19.2099386],[-87.4453542,19.3118952],[-87.5560275,19.2960106],[-87.6383311,19.1771804],[-87.6704022,19.187387],[-87.6908481,19.228451],[-87.6698452,19.2970316],[-87.6349407,19.3744718],[-87.5540695,19.4269826],[-87.5354134,19.4289062],[-87.5409186,19.4003852],[-87.5476831,19.395978],[-87.5609252,19.3940755],[-87.5725901,19.3981526],[-87.5718766,19.3948547],[-87.545017,19.3915455],[-87.5263609,19.3949812],[-87.4404109,19.4695004],[-87.4106115,19.591769],[-87.4545555,19.6478064],[-87.4505925,19.5995088],[-87.5252599,19.5403328],[-87.6100539,19.5540237],[-87.650519,19.5049584],[-87.6583631,19.5000864],[-87.6695305,19.5007311],[-87.6766866,19.5692323],[-87.7485041,19.5995897],[-87.7423096,19.6634835],[-87.6499048,19.6885956],[-87.66818,19.6155305],[-87.5613731,19.8051218],[-87.4696308,19.7803486],[-87.4298269,19.8860569],[-87.4779338,20.0781564],[-87.4232666,20.2262638],[-87.2822396,20.446063],[-86.8737576,20.8471098],[-86.7406364,21.1353563],[-86.8068141,21.1786772],[-86.8163106,21.2831858],[-86.7910858,21.3454151],[-86.7953187,21.4090937],[-86.827168,21.4141474],[-86.7925595,21.3447368],[-86.8369004,21.2723965],[-86.823657,21.2439637],[-86.9759864,21.5475334],[-86.9846304,21.541824],[-86.9749108,21.5409646],[-86.9696322,21.530109],[-86.9739814,21.5099924],[-87.084707,21.5892273],[-87.1287261,21.5540355],[-87.1117319,21.471221],[-87.2324621,21.4186107],[-87.535015,21.4896959],[-87.5331452,20.9996021],[-87.7442594,20.653787],[-88.1364896,20.2813717],[-88.4091277,20.2520973],[-88.5199299,20.192328],[-88.5076212,20.143391],[-88.6906089,20.0898561],[-88.7001761,20.0103567],[-88.7835025,20.0081801],[-88.8259263,19.8799255],[-88.900488,19.861114],[-88.9295124,19.7909485],[-88.9744517,19.8181008],[-89.0251629,19.7767096],[-89.048827,19.7214933],[-88.9975293,19.7048838],[-89.1233985,19.7034241],[-89.1090244,19.5823493],[-89.1892031,19.6440059],[-89.2965618,19.551174]]],[[[-87.7339545,19.6627725],[-87.7337372,19.6611181],[-87.7329004,19.6615753],[-87.7339545,19.6627725]]],[[[-87.7086706,19.6500798],[-87.70776,19.6458689],[-87.7038816,19.647036],[-87.7086706,19.6500798]]],[[[-87.7018659,19.5924096],[-87.6956874,19.5873948],[-87.6877528,19.587705],[-87.7018659,19.5924096]]],[[[-87.6759568,19.2223691],[-87.6761664,19.2215196],[-87.6754107,19.2217498],[-87.6759568,19.2223691]]],[[[-87.6659739,19.199608],[-87.6658988,19.19928],[-87.6653717,19.199917],[-87.6659739,19.199608]]],[[[-87.6593462,19.5075044],[-87.6593623,19.5043415],[-87.6588741,19.5061341],[-87.6593462,19.5075044]]],[[[-87.6594456,19.5880151],[-87.6596473,19.5873574],[-87.6590918,19.5877503],[-87.6594456,19.5880151]]],[[[-87.6585764,19.5146996],[-87.6576886,19.511954],[-87.6567605,19.515314],[-87.6585764,19.5146996]]],[[[-87.6585174,19.5028189],[-87.6584879,19.5023189],[-87.6582344,19.5025199],[-87.6585174,19.5028189]]],[[[-87.6536465,19.5068471],[-87.6534306,19.5056297],[-87.6530886,19.5074172],[-87.6536465,19.5068471]]],[[[-87.6499343,19.1938643],[-87.6494207,19.1935147],[-87.6493818,19.1938998],[-87.6499343,19.1938643]]],[[[-87.6480035,19.5875312],[-87.6471977,19.5868538],[-87.6470308,19.5874147],[-87.6480035,19.5875312]]],[[[-87.6389305,19.2184526],[-87.6413713,19.2166822],[-87.6248288,19.2265432],[-87.6389305,19.2184526]]],[[[-87.6438618,19.1931854],[-87.6451385,19.1911652],[-87.6436754,19.1921734],[-87.6438618,19.1931854]]],[[[-87.6423356,19.1884509],[-87.6442936,19.1849196],[-87.6398344,19.1854478],[-87.6423356,19.1884509]]],[[[-87.6371074,19.5892531],[-87.6379052,19.5874396],[-87.6359503,19.5889088],[-87.6371074,19.5892531]]],[[[-87.6356998,19.2037305],[-87.6350132,19.2003641],[-87.6329103,19.2049944],[-87.6356998,19.2037305]]],[[[-87.6327749,19.1947914],[-87.6295066,19.1909233],[-87.6281172,19.1964126],[-87.6327749,19.1947914]]],[[[-87.6300189,19.2042396],[-87.6288266,19.2025526],[-87.6284444,19.2038343],[-87.6300189,19.2042396]]],[[[-87.623359,19.2288707],[-87.623937,19.2272346],[-87.6223424,19.2286744],[-87.623359,19.2288707]]],[[[-87.6172462,19.234422],[-87.614959,19.2348044],[-87.6148979,19.23583],[-87.6172462,19.234422]]],[[[-87.6054834,19.2353995],[-87.6052225,19.2341807],[-87.6040585,19.235742],[-87.6054834,19.2353995]]],[[[-87.6030251,19.2368126],[-87.6027221,19.236315],[-87.6019456,19.2357578],[-87.6030251,19.2368126]]],[[[-87.5766885,19.5659392],[-87.5765866,19.5651204],[-87.576073,19.5660884],[-87.5766885,19.5659392]]],[[[-87.5668851,19.5773826],[-87.5668556,19.5767129],[-87.5661877,19.5773422],[-87.5668851,19.5773826]]],[[[-87.561923,19.5808296],[-87.5617245,19.5805238],[-87.561534,19.5808751],[-87.561923,19.5808296]]],[[[-87.5580204,19.5836296],[-87.5581773,19.5830547],[-87.5576918,19.5832467],[-87.5580204,19.5836296]]],[[[-87.553415,19.4140614],[-87.5514516,19.4086275],[-87.5484341,19.4097456],[-87.553415,19.4140614]]],[[[-87.5507274,19.3970988],[-87.5508535,19.3965119],[-87.5504029,19.3967092],[-87.5507274,19.3970988]]],[[[-87.5501776,19.3985055],[-87.5496063,19.3979666],[-87.5501508,19.3987888],[-87.5501776,19.3985055]]],[[[-87.5440085,19.594119],[-87.5447971,19.5899067],[-87.53012,19.5911626],[-87.5440085,19.594119]]],[[[-87.5477274,19.3992113],[-87.5482866,19.3983916],[-87.5483175,19.3975795],[-87.5477274,19.3992113]]],[[[-87.5453872,19.414795],[-87.5458901,19.4131684],[-87.5446482,19.4142144],[-87.5453872,19.414795]]],[[[-87.5382699,19.5621886],[-87.5381519,19.5617514],[-87.5379829,19.5620983],[-87.5382699,19.5621886]]],[[[-87.5267082,19.5924677],[-87.5273171,19.5899951],[-87.5256367,19.5924071],[-87.5267082,19.5924677]]],[[[-87.5242326,19.5925625],[-87.5242782,19.5889565],[-87.5217891,19.5906597],[-87.5242326,19.5925625]]],[[[-87.5231704,19.5935682],[-87.523047,19.5925524],[-87.5224167,19.5933761],[-87.5231704,19.5935682]]],[[[-87.5196326,19.6129938],[-87.5210622,19.6061744],[-87.5181252,19.6115435],[-87.5196326,19.6129938]]],[[[-87.5227064,19.612971],[-87.5230283,19.6118088],[-87.5225616,19.6116698],[-87.5227064,19.612971]]],[[[-87.5230122,19.6117153],[-87.5231047,19.6115372],[-87.5228338,19.6114172],[-87.5230122,19.6117153]]],[[[-87.521435,19.6122257],[-87.5224382,19.6116572],[-87.5214028,19.611781],[-87.521435,19.6122257]]],[[[-87.508834,19.5945966],[-87.5139973,19.5934595],[-87.5120151,19.5882237],[-87.5059801,19.5891284],[-87.508834,19.5945966]]],[[[-87.5191095,19.6281779],[-87.5203246,19.6227259],[-87.5152659,19.6290065],[-87.5191095,19.6281779]]],[[[-87.5194864,19.5886204],[-87.5186428,19.5887897],[-87.5174982,19.589779],[-87.5194864,19.5886204]]],[[[-87.5005513,19.3609441],[-87.5140268,19.3558248],[-87.4793243,19.3354901],[-87.5005513,19.3609441]]],[[[-87.5175217,19.5933306],[-87.5174436,19.5927357],[-87.5174385,19.5935985],[-87.5175217,19.5933306]]],[[[-87.516768,19.5923072],[-87.5168592,19.5914102],[-87.5162959,19.5923755],[-87.516768,19.5923072]]],[[[-87.5130075,19.5873317],[-87.5144371,19.5871826],[-87.5134259,19.5868515],[-87.5130075,19.5873317]]],[[[-87.4973112,19.7103618],[-87.4855229,19.7039657],[-87.4796703,19.7046374],[-87.4973112,19.7103618]]],[[[-87.5023887,19.5733138],[-87.5010529,19.5727907],[-87.5009456,19.5729373],[-87.5023887,19.5733138]]],[[[-87.4989501,19.5926939],[-87.4986309,19.5918853],[-87.4969357,19.5899724],[-87.4975473,19.5922997],[-87.4989501,19.5926939]]],[[[-87.4954176,19.6093554],[-87.4943554,19.6071825],[-87.4933201,19.6103686],[-87.4954176,19.6093554]]],[[[-87.4954176,19.6043198],[-87.4951091,19.6032156],[-87.4944949,19.6041227],[-87.4954176,19.6043198]]],[[[-87.4932048,19.6050197],[-87.4929433,19.6041164],[-87.4882346,19.6031499],[-87.4901202,19.6052344],[-87.4932048,19.6050197]]],[[[-87.4929741,19.5936882],[-87.491979,19.5915188],[-87.4907264,19.5926042],[-87.4929741,19.5936882]]],[[[-87.4928212,19.5972144],[-87.4915633,19.5953168],[-87.4909624,19.5986093],[-87.4928212,19.5972144]]],[[[-87.4920702,19.6027608],[-87.4917108,19.6006838],[-87.4901712,19.6016692],[-87.4920702,19.6027608]]],[[[-87.4775514,19.6034379],[-87.4830607,19.596886],[-87.4765295,19.5999409],[-87.4775514,19.6034379]]],[[[-87.4716774,19.7038596],[-87.4708995,19.6991299],[-87.4685258,19.7006425],[-87.4716774,19.7038596]]],[[[-87.4715728,19.6013761],[-87.4714708,19.6007166],[-87.4708352,19.6009769],[-87.4715728,19.6013761]]],[[[-87.4715325,19.3338096],[-87.4713314,19.3327263],[-87.4704704,19.3333616],[-87.4715325,19.3338096]]],[[[-87.4656156,19.3324302],[-87.4665999,19.3327947],[-87.4652588,19.3266266],[-87.4656156,19.3324302]]],[[[-87.4644059,19.6031221],[-87.4677251,19.5994545],[-87.4624452,19.5992308],[-87.4644059,19.6031221]]],[[[-87.4685124,19.5968733],[-87.4685043,19.5959561],[-87.468212,19.5966434],[-87.4685124,19.5968733]]],[[[-87.4672651,19.6124253],[-87.4662888,19.6123975],[-87.4660635,19.6076171],[-87.4641269,19.6058787],[-87.4652964,19.6130595],[-87.4672651,19.6124253]]],[[[-87.4656853,19.6981476],[-87.4668816,19.6940945],[-87.4643053,19.6936577],[-87.4656853,19.6981476]]],[[[-87.4629146,19.5980079],[-87.4630192,19.5941595],[-87.4613509,19.5939447],[-87.4629146,19.5980079]]],[[[-87.4608064,19.695284],[-87.4589825,19.6909757],[-87.4576575,19.6912182],[-87.4608064,19.695284]]],[[[-87.4549592,19.5976592],[-87.4578613,19.5957767],[-87.4545783,19.5971664],[-87.4549592,19.5976592]]],[[[-87.3835538,21.5228231],[-87.3732001,21.5124753],[-87.3525755,21.5424668],[-87.3835538,21.5228231]]],[[[-87.3884763,21.5020128],[-87.3884195,21.501212],[-87.3877927,21.5016713],[-87.3884763,21.5020128]]],[[[-87.3767143,18.392093],[-87.3760773,18.3915926],[-87.3768488,18.393294],[-87.3767143,18.392093]]],[[[-87.3719367,21.5114497],[-87.3732926,21.5098109],[-87.3718724,21.5097566],[-87.3719367,21.5114497]]],[[[-87.3661487,21.5144006],[-87.3664669,21.5139345],[-87.3650923,21.5151723],[-87.3661487,21.5144006]]],[[[-87.3602208,21.518342],[-87.3600337,21.5180401],[-87.3596245,21.5183284],[-87.3602208,21.518342]]],[[[-87.3550281,21.5349019],[-87.3585619,21.5205825],[-87.3457369,21.5325566],[-87.3550281,21.5349019]]],[[[-87.3348928,21.5640153],[-87.3319799,21.5521686],[-87.2898518,21.5113836],[-87.2622961,21.5297671],[-87.2106046,21.5196119],[-87.1687943,21.5548853],[-87.1546349,21.5578963],[-87.1517301,21.5568111],[-87.1525106,21.5595876],[-87.1477067,21.561088],[-87.1487501,21.5635539],[-87.1299478,21.5684255],[-87.111324,21.59392],[-87.212863,21.5445472],[-87.3348928,21.5640153]]],[[[-87.3456565,21.538058],[-87.3462814,21.5329408],[-87.3431486,21.5369303],[-87.3440471,21.5365536],[-87.3447633,21.5367806],[-87.3456565,21.538058]]],[[[-87.342301,21.5403907],[-87.3440525,21.5367033],[-87.3411906,21.5388713],[-87.342301,21.5403907]]],[[[-87.3198964,18.5993253],[-87.3205724,18.5753348],[-87.3058509,18.6016074],[-87.3198964,18.5993253]]],[[[-87.3204838,21.5189576],[-87.3200852,21.517771],[-87.3196537,21.5181702],[-87.3204838,21.5189576]]],[[[-87.3182362,21.528088],[-87.3192555,21.5264611],[-87.3175576,21.5253508],[-87.3182362,21.528088]]],[[[-87.3100475,21.5261767],[-87.3099321,21.5221795],[-87.3078722,21.5240084],[-87.3100475,21.5261767]]],[[[-87.3058659,18.7416792],[-87.3041439,18.7377066],[-87.3034734,18.7407952],[-87.3058659,18.7416792]]],[[[-87.3018909,18.7507746],[-87.3008958,18.7453773],[-87.2987044,18.7502997],[-87.3018909,18.7507746]]],[[[-87.2243357,21.5180219],[-87.2236161,21.5164618],[-87.2170074,21.5188152],[-87.2243357,21.5180219]]],[[[-87.2151432,21.5200133],[-87.2158018,21.5191094],[-87.2145293,21.5200322],[-87.2151432,21.5200133]]],[[[-87.1614343,21.5561376],[-87.1639556,21.5477779],[-87.1568236,21.551747],[-87.1614343,21.5561376]]],[[[-87.1524543,21.5566016],[-87.1532482,21.5555538],[-87.1521887,21.5564868],[-87.1524543,21.5566016]]],[[[-87.1503621,21.5561251],[-87.1512526,21.5527873],[-87.1502119,21.5547431],[-87.1503621,21.5561251]]],[[[-87.1482349,21.558526],[-87.1488702,21.5576515],[-87.148362,21.5576751],[-87.1482349,21.558526]]],[[[-87.1489055,21.56042],[-87.1496037,21.5594437],[-87.1485743,21.5590977],[-87.1489055,21.56042]]],[[[-87.147862,21.5578999],[-87.148113,21.5561559],[-87.1476915,21.5564378],[-87.147862,21.5578999]]],[[[-87.1472089,21.5626388],[-87.1448838,21.5581721],[-87.1414072,21.5609525],[-87.1472089,21.5626388]]],[[[-87.0985643,21.6049224],[-87.106347,21.5968382],[-87.0998605,21.6027435],[-87.0884803,21.5902258],[-87.0461844,21.585134],[-87.0985643,21.6049224]]],[[[-87.1113776,21.5959137],[-87.1115828,21.5951168],[-87.1113306,21.5951031],[-87.1113776,21.5959137]]],[[[-87.1099962,21.596915],[-87.1103986,21.5947565],[-87.108171,21.5971132],[-87.1099962,21.596915]]],[[[-87.024189,21.5835348],[-87.0303127,21.5746165],[-87.0231226,21.5802183],[-86.992513,21.5639961],[-87.024189,21.5835348]]],[[[-87.0237666,21.5746793],[-87.0211146,21.568821],[-87.0186098,21.570325],[-87.0237666,21.5746793]]],[[[-87.0251995,20.3667664],[-86.9878055,20.2721233],[-86.7234381,20.5905868],[-86.9271876,20.5508731],[-87.0251995,20.3667664]]],[[[-87.0086428,21.5666554],[-87.0036566,21.5620601],[-87.003817,21.5674604],[-87.0086428,21.5666554]]],[[[-86.972029,21.5309854],[-86.9740672,21.5306126],[-86.9754706,21.5289129],[-86.974673,21.5263917],[-86.972029,21.5309854]]],[[[-86.9321016,21.4743578],[-86.9336059,21.4665361],[-86.9274357,21.4686951],[-86.9321016,21.4743578]]],[[[-86.917248,21.4761036],[-86.9204485,21.4754145],[-86.9190913,21.4718402],[-86.917248,21.4761036]]],[[[-86.9158292,21.4747819],[-86.9123898,21.4662077],[-86.9104846,21.4672249],[-86.9158292,21.4747819]]],[[[-86.8752654,21.4262657],[-86.878759,21.4207669],[-86.8696475,21.4300902],[-86.8870148,21.4319303],[-86.8752654,21.4262657]]],[[[-86.882508,21.4254809],[-86.8821951,21.4245332],[-86.8817422,21.425307],[-86.882508,21.4254809]]],[[[-86.8801532,21.4255187],[-86.8806863,21.4241334],[-86.8796911,21.4254298],[-86.8801532,21.4255187]]],[[[-86.8809652,21.425309],[-86.8810506,21.4251993],[-86.8809611,21.4252144],[-86.8809652,21.425309]]],[[[-86.8589007,21.4346834],[-86.8559329,21.4326394],[-86.8524498,21.4358371],[-86.8589007,21.4346834]]],[[[-86.8044309,21.5340773],[-86.8045624,21.5337717],[-86.8043639,21.5336931],[-86.8044309,21.5340773]]],[[[-86.8043786,21.533496],[-86.7994481,21.4931624],[-86.7972279,21.5041256],[-86.7856246,21.4608347],[-86.8043786,21.533496]]],[[[-86.7942935,21.4871951],[-86.7938885,21.4864389],[-86.7935988,21.4871377],[-86.7942935,21.4871951]]],[[[-86.7470833,21.2613554],[-86.733571,21.2231614],[-86.7107521,21.2015523],[-86.7470833,21.2613554]]],[[[-86.7485485,21.265079],[-86.7494089,21.2629886],[-86.7483063,21.2628266],[-86.7485485,21.265079]]],[[[-86.748417,21.2449549],[-86.7480757,21.2437674],[-86.7476258,21.2436499],[-86.748417,21.2449549]]],[[[-86.7432249,21.2398224],[-86.7470612,21.2421862],[-86.7433818,21.2379424],[-86.7432249,21.2398224]]]]}}];
+
+// ---------- Karte ----------
+const map = L.map('map', {zoomControl:true});
+const HOME_BOUNDS = [[15.0,-101.5],[22.6,-86.4]];
+map.fitBounds(HOME_BOUNDS, {padding:[10,10]});
+// Falls der Viewport beim Laden noch 0x0 ist (eingebettete Browser): nachziehen
+let hadSize = innerWidth > 0 && innerHeight > 0;
+window.addEventListener('resize', () => {
+  map.invalidateSize();
+  if(!hadSize && innerWidth > 0 && innerHeight > 0){
+    hadSize = true;
+    map.fitBounds(HOME_BOUNDS, {padding:[10,10]});
+  }
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution:'&copy; OpenStreetMap &copy; CARTO · Zonen: EDA-Reisehinweise 11.02.2026', maxZoom:19
+}).addTo(map);
+
+// ---------- EDA-Zonen ----------
+const zoneStyle = lvl => lvl === 'red'
+  ? {color:'#c22a1e', weight:1, opacity:.5, fillColor:'#c22a1e', fillOpacity:.20, interactive:true}
+  : {color:'#d98a1f', weight:1, opacity:.45, fillColor:'#d98a1f', fillOpacity:.14, interactive:true};
+const zoneLayer = L.layerGroup();
+ZONES.forEach(z => {
+  const gj = L.geoJSON(z.g, {style: zoneStyle(z.lvl)});
+  gj.bindTooltip(z.n + ' - EDA: ' + (z.lvl === 'red' ? 'von Reisen abgeraten' : 'erhöhte Vorsicht'), {sticky:true});
+  gj.addTo(zoneLayer);
+});
+zoneLayer.addTo(map);
+document.getElementById('zoneToggle').addEventListener('change', e => {
+  if(e.target.checked) zoneLayer.addTo(map); else map.removeLayer(zoneLayer);
+});
+
+// ---------- Marker ----------
+const markers = [];
+PLACES.forEach(p => {
+  const badge = p.warn ? '<span class="pin-badge">!</span>' : '';
+  const icon = L.divIcon({
+    className:'',
+    html:`<div class="pin ${p.cat}">${CATS[p.cat].emoji}${badge}</div>`,
+    iconSize:[38,38], iconAnchor:[19,36]
+  });
+  const m = L.marker([p.lat, p.lng], {icon}).addTo(map);
+  m.on('click', () => openSheet(p));
+  m._cat = p.cat;
+  markers.push(m);
+});
+
+// ---------- Bottom Sheet ----------
+const sheet = document.getElementById('sheet');
+function openSheet(p){
+  document.getElementById('sheetTag').textContent = CATS[p.cat].emoji + ' ' + CATS[p.cat].label;
+  document.getElementById('sheetTag').className = 'tag ' + p.cat;
+  document.getElementById('sheetTitle').textContent = p.name;
+  document.getElementById('sheetNote').textContent = p.note;
+  document.getElementById('sheetJuli').textContent = p.juli ? '🗓️ Juli: ' + p.juli : '';
+  document.getElementById('sheetWarn').textContent = p.warn ? '⚠️ ' + p.warn : '';
+  document.getElementById('sheetMeta').textContent = p.meta || '';
+  const route = document.getElementById('sheetRoute');
+  route.style.display = '';
+  route.href = 'https://www.google.com/maps/dir/?api=1&destination=' + p.lat + ',' + p.lng;
+  sheet.classList.add('open');
+  map.panTo([p.lat, p.lng], {animate:true});
+}
+map.on('click', () => sheet.classList.remove('open'));
+
+// ---------- Info-Sheet (Juli-Logik) ----------
+document.getElementById('infoBtn').addEventListener('click', () => {
+  document.getElementById('sheetTag').textContent = 'ℹ️ Juli-Logik';
+  document.getElementById('sheetTag').className = 'tag info';
+  document.getElementById('sheetTitle').textContent = 'Warum genau diese Auswahl?';
+  document.getElementById('sheetNote').innerHTML = `
+    <h3>Klima-Logik Juli/Anfang August</h3>
+    <ul>
+      <li><b>Hochland</b> (CDMX, Puebla, Oaxaca, San Cristóbal): Regenzeit = grün und mild (20-28 Grad). Vormittags trocken, Gewitter meist erst ab ca. 16 Uhr - Besichtigungen morgens, Museen/Märkte nachmittags.</li>
+      <li><b>Yucatán</b>: 34-38 Grad, schwül. Tagesrhythmus: Ruinen um 8 Uhr, Cenote über Mittag, Stadt am Abend.</li>
+      <li><b>Karibik</b>: 2026 ist ein Sargassum-Rekordjahr. Verlässlich frei: Playa Norte (Isla Mujeres), Holbox, Cozumel-West, Bacalar (Lagune). Tulum/Playa del Carmen im Juli meist stark belegt - tagesaktuell: <a href="https://www.howisthesargassum.com" target="_blank" rel="noopener">howisthesargassum.com</a>.</li>
+      <li><b>Hurrikan</b>: Saison Juni-Nov., im Juli moderat, ernst ab Mitte August. Ab 5 Tagen vor Abflug <a href="https://www.nhc.noaa.gov" target="_blank" rel="noopener">NHC-Forecast</a> prüfen, flexibel buchen.</li>
+      <li><b>Wind &amp; Wellen</b>: Der Karibik-Passat flaut im Sommer ab - Wingfoil geht in El Cuyo noch bis Ende Juli (leichte Foil-Tage), ab August kaum mehr; Isla Blanca nur mit Glück. Dafür ist am Pazifik Süd-Swell-Hochsaison: Juli/August sind DIE Surf-Monate der Oaxaca-Küste.</li>
+      <li><b>Ferien-Realität</b>: Mexikanische Sommerferien 16. Juli - 30. August 2026 (SEP) - das ganze Fenster Ende Juli/Anfang August ist Inlands-Hochsaison. Unterkünfte und Walhai-/Marietas-Touren früh buchen, populäre Cenoten und Chichén am Wochenende meiden, Tolantongo nur unter der Woche.</li>
+    </ul>
+    <h3>Südamerika als Juli-Alternative (🌎-Chip)</h3>
+    <ul>
+      <li>Juli = <b>Anden-Trockenzeit</b> und damit die beste Reisezeit des Jahres für Peru und Bolivien (Cusco, Huaraz, Colca, Titicaca, Uyuni) - stabil sonnig, nachts kalt, um die Fiestas Patrias (28./29.7.) Hochsaison.</li>
+      <li>Wind im Juli: Lago Calima (Kolumbien) auf Saisonhöhe, Jericoacoara (Brasilien) startet den Passat - beide stärker als alles, was Mexiko im Juli bietet. Surf: Chicama/Pacasmayo mit Süd-Swell-Peak, aber kaltes Wasser.</li>
+      <li>EDA (gespeicherte Hinweise, Feb. 2026): Peru nur VRAEM/Grenzgebiete tabu; Ecuador: Guayaquil/Esmeraldas abgeraten (Flughafen-Transit ausgenommen); Kolumbien: Abraten-Departements wie Chocó, Nariño, Putumayo, Arauca, Norte de Santander meiden, Touristen-Achse mit Vorsicht ok; Bolivien: Blockade-Risiko, Puffertage.</li>
+      <li>Patagonien und chilenischer Süden: tiefer Winter - kein Juli-Ziel (ausser Skifahren).</li>
+    </ul>
+    <h3>Bewusst NICHT auf der Karte</h3>
+    <ul>
+      <li>Monarchfalter (nur Nov.-März) und Celestún-Flamingos (Winterkolonie - im Juli ist Río Lagartos richtig).</li>
+      <li>Huasteca Potosina: Wasserfälle in der Regenzeit braun/hochwassergefährdet.</li>
+      <li>Los Cabos/La Paz: Backofen-Hitze, Hurrikan-Kernzone ab August, Walhaie erst ab Oktober.</li>
+      <li>EDA rät ab (rote Zonen): Guanajuato/San Miguel, Michoacán, Guerrero/Acapulco, Sinaloa, Chihuahua/Kupfercanyon, Zacatecas, Tamaulipas, Tabasco, Tijuana - plus Grenzgebiet zu Guatemala (nicht eingezeichnet).</li>
+      <li>Guadalajara &amp; Umland (Tequila-Landschaft, Chapala-See, Nevado de Colima): Das EDA nennt Jalisco ausdrücklich „einschliesslich Guadalajara" in der Vorsichtsliste mit hohem Gewaltrisiko - Klima und Kultur wären im Juli gut, die Auslassung ist eine bewusste Sicherheits-Abwägung. Ausnahme auf der Karte: Nayarit (Sayulita, Punta Mita, Islas Marietas) steht auf keiner EDA-Liste - nur der Flughafen-Transfer läuft über Jalisco.</li>
+      <li>Wind-Klassiker La Ventana/Los Barriles (Baja): reine Winter-Spots (El Norte, Nov.-März) - im Juli toter Sommer.</li>
+    </ul>
+    <h3>Sicherheits-Basics (EDA)</h3>
+    <ul>
+      <li>Keine nächtlichen Überlandfahrten, gebührenpflichtige „Cuota“-Strassen nutzen.</li>
+      <li>In Städten Uber/DiDi oder Sitio-Taxis statt Strassen-Taxis, in CDMX Metro meiden.</li>
+      <li>Quelle: <a href="https://www.eda.admin.ch/eda/de/home/laender-reise-information/mexiko/reisehinweise-mexiko.html" target="_blank" rel="noopener">EDA-Reisehinweise Mexiko</a>, Stand Anfang 2026 - vor Buchung erneut prüfen.</li>
+      <li>Zweitmeinung <a href="https://travel.state.gov/content/travel/en/traveladvisories/traveladvisories/mexico-travel-advisory.html" target="_blank" rel="noopener">US State Department</a> (Juli 2026): landesweit Level 2, Yucatán und Campeche Level 1 (bestätigt den Karten-Schwerpunkt), 6 Staaten Level 4 (deckt sich mit EDA-rot). Abweichung: Estado de México steht auf „Reconsider Travel" - für Teotihuacán, Izta und Valle de Bravo praktisch: organisierte Tagesausflüge oder Uber, nie nachts überland.</li>
+    </ul>`;
+  document.getElementById('sheetJuli').textContent = '';
+  document.getElementById('sheetWarn').textContent = '';
+  document.getElementById('sheetMeta').textContent = 'Guelaguetza 2026: 20.+27. Juli · Walhai-Saison: 15.5.-17.9., Peak Juli/Aug.';
+  document.getElementById('sheetRoute').style.display = 'none';
+  sheet.classList.add('open');
+});
+
+// Swipe nach unten schliesst das Sheet
+let startY = null;
+sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, {passive:true});
+sheet.addEventListener('touchmove', e => {
+  if(startY !== null && e.touches[0].clientY - startY > 60){
+    sheet.classList.remove('open'); startY = null;
+  }
+}, {passive:true});
+
+// ---------- Filter ----------
+const state = {};
+Object.keys(CATS).forEach(k => state[k] = true);
+const allOn = () => Object.keys(CATS).every(k => state[k]);
+function applyFilter(){
+  markers.forEach(m => {
+    if(state[m._cat]) m.addTo(map); else map.removeLayer(m);
+  });
+  document.querySelectorAll('.chip').forEach(c => {
+    const cat = c.dataset.cat;
+    if(cat === 'all'){
+      c.classList.toggle('off', !allOn());
+    } else {
+      c.classList.toggle('off', !state[cat]);
+    }
+  });
+}
+document.getElementById('chips').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if(!chip) return;
+  const cat = chip.dataset.cat;
+  if(cat === 'all'){
+    Object.keys(CATS).forEach(k => state[k] = true);
+  } else {
+    if(allOn()){
+      Object.keys(CATS).forEach(k => state[k] = false);
+      state[cat] = true;
+    } else {
+      state[cat] = !state[cat];
+      if(Object.keys(CATS).every(k => !state[k])){
+        Object.keys(CATS).forEach(k => state[k] = true);
+      }
+    }
+  }
+  applyFilter();
+  sheet.classList.remove('open');
+  // Südamerika-Chip allein aktiv -> Ansicht dorthin; zurück -> Mexiko-Ansicht
+  const aktiv = Object.keys(CATS).filter(k => state[k]);
+  if(aktiv.length === 1 && aktiv[0] === 'sam'){
+    const b = L.latLngBounds(markers.filter(m => m._cat === 'sam').map(m => m.getLatLng()));
+    map.fitBounds(b, {padding:[40,40]});
+    samView = true;
+  } else if(samView){
+    map.fitBounds(HOME_BOUNDS, {padding:[10,10]});
+    samView = false;
+  }
+});
+let samView = false;
+applyFilter();
+
+// ---------- Eigener Standort (kein Autostart - Karte soll auf Mexiko bleiben) ----------
+const locateBtn = document.getElementById('locateBtn');
+let watchId = null, meMarker = null, meCircle = null, firstFix = true;
+const meIcon = L.divIcon({className:'', html:'<div class="me-dot"></div>', iconSize:[18,18], iconAnchor:[9,9]});
+function onFix(pos){
+  const ll = [pos.coords.latitude, pos.coords.longitude];
+  if(!meMarker){
+    meMarker = L.marker(ll, {icon:meIcon, zIndexOffset:1000, interactive:false}).addTo(map);
+    meCircle = L.circle(ll, {radius:pos.coords.accuracy, color:'#1a73e8', weight:1, opacity:.4,
+      fillColor:'#1a73e8', fillOpacity:.1, interactive:false}).addTo(map);
+  } else {
+    meMarker.setLatLng(ll);
+    meCircle.setLatLng(ll).setRadius(pos.coords.accuracy);
+  }
+  if(firstFix){ map.setView(ll, Math.max(map.getZoom(), 12), {animate:true}); firstFix = false; }
+}
+function onErr(){ stopLocate(); alert('Standort nicht verfügbar (Ortung erlauben, braucht HTTPS).'); }
+function startLocate(){
+  if(!('geolocation' in navigator)){ alert('Dieses Gerät unterstützt keine Ortung.'); return; }
+  firstFix = true;
+  watchId = navigator.geolocation.watchPosition(onFix, onErr, {enableHighAccuracy:true, maximumAge:10000, timeout:15000});
+  locateBtn.classList.add('active');
+}
+function stopLocate(){
+  if(watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if(meMarker){ map.removeLayer(meMarker); meMarker = null; }
+  if(meCircle){ map.removeLayer(meCircle); meCircle = null; }
+  locateBtn.classList.remove('active');
+}
+locateBtn.addEventListener('click', () => {
+  if(watchId !== null){
+    if(meMarker) map.setView(meMarker.getLatLng(), Math.max(map.getZoom(), 12), {animate:true});
+    else stopLocate();
+  } else { startLocate(); }
+});
+locateBtn.addEventListener('dblclick', stopLocate);
+</script>
+</body>
+</html>
